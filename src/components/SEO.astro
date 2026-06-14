@@ -1,0 +1,121 @@
+---
+import { SITE } from "../config";
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Path of this page, e.g. "/" — used for canonical + og:url */
+  path?: string;
+  ogImage?: string;
+}
+
+const {
+  title = `${SITE.name} — ${SITE.role}`,
+  description = SITE.description,
+  path = "/",
+  ogImage = SITE.ogImage,
+} = Astro.props;
+
+// Build absolute URLs. Astro.site is the configured origin; base is applied separately.
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const canonical = new URL(
+  path === "/" ? `${base}/` : `${base}${path}`,
+  Astro.site,
+).href;
+const ogImageUrl = new URL(`${base}${ogImage}`, Astro.site).href;
+
+// JSON-LD: Person + WebSite structured data for rich results / knowledge panels.
+const personSchema = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: SITE.name,
+  alternateName: SITE.handle,
+  url: SITE.url,
+  image: ogImageUrl,
+  jobTitle: SITE.role,
+  email: `mailto:${SITE.email}`,
+  description: SITE.description,
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Berlin",
+    addressCountry: "DE",
+  },
+  knowsAbout: [
+    "Artificial Intelligence",
+    "AI Agents",
+    "Large Language Models",
+    "Autonomous Systems",
+    "Web3",
+    "Full-stack Development",
+  ],
+  sameAs: [
+    "https://github.com/emretheus",
+    "https://www.linkedin.com/in/emre-ulgac",
+  ],
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: `${SITE.name} — Portfolio`,
+  url: SITE.url,
+  inLanguage: SITE.lang,
+  author: { "@type": "Person", name: SITE.name },
+};
+
+const proServiceSchema = {
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  name: `${SITE.name} — Freelance AI Agent Development`,
+  description:
+    "Freelance development of autonomous AI agents, LLM applications, MCP servers and Web3 infrastructure.",
+  url: SITE.url,
+  areaServed: "Worldwide",
+  provider: { "@type": "Person", name: SITE.name },
+  knowsAbout: ["AI Agents", "LLMs", "MCP", "RAG", "Web3"],
+};
+---
+
+<!-- Primary Meta Tags -->
+<title>{title}</title>
+<meta name="title" content={title} />
+<meta name="description" content={description} />
+<meta name="keywords" content={SITE.keywords.join(", ")} />
+<meta name="author" content={SITE.name} />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta name="googlebot" content="index, follow" />
+<link rel="canonical" href={canonical} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content={canonical} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={ogImageUrl} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={`${SITE.name} — ${SITE.role}`} />
+<meta property="og:site_name" content={SITE.name} />
+<meta property="og:locale" content={SITE.locale} />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:url" content={canonical} />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImageUrl} />
+<meta name="twitter:image:alt" content={`${SITE.name} — ${SITE.role}`} />
+
+<!-- Structured Data -->
+<script
+  type="application/ld+json"
+  set:html={JSON.stringify(personSchema)}
+/>
+<script
+  type="application/ld+json"
+  set:html={JSON.stringify(websiteSchema)}
+/>
+<script
+  type="application/ld+json"
+  set:html={JSON.stringify(proServiceSchema)}
+/>

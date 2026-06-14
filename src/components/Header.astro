@@ -1,0 +1,189 @@
+---
+import { NAV, SITE } from "../config";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<header class="hdr" id="site-header">
+  <div class="container hdr-inner">
+    <a href={`${base}/`} class="brand" aria-label={`${SITE.name} — home`}>
+      <img src={`${base}/favicon.svg`} width="30" height="30" alt="" />
+      <span>{SITE.handle}</span>
+    </a>
+
+    <nav class="nav" aria-label="Primary">
+      <ul>
+        {NAV.map((item) => (
+          <li><a href={item.href}>{item.label}</a></li>
+        ))}
+      </ul>
+    </nav>
+
+    <a href="#contact" class="btn btn-primary hdr-cta">Let’s talk</a>
+
+    <button class="menu-btn" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobile-nav">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile" hidden>
+    <ul>
+      {NAV.map((item) => (
+        <li><a href={item.href}>{item.label}</a></li>
+      ))}
+      <li><a href="#contact" class="m-cta">Let’s talk →</a></li>
+    </ul>
+  </nav>
+</header>
+
+<script>
+  const header = document.getElementById("site-header");
+  const btn = header?.querySelector(".menu-btn");
+  const mnav = document.getElementById("mobile-nav");
+
+  // sticky shadow on scroll
+  const onScroll = () => {
+    if (window.scrollY > 12) header?.classList.add("scrolled");
+    else header?.classList.remove("scrolled");
+  };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  // mobile menu toggle
+  const setOpen = (open: boolean) => {
+    btn?.setAttribute("aria-expanded", String(open));
+    header?.classList.toggle("menu-open", open);
+    if (mnav) mnav.hidden = !open;
+  };
+  btn?.addEventListener("click", () => {
+    const open = btn.getAttribute("aria-expanded") === "true";
+    setOpen(!open);
+  });
+  mnav?.querySelectorAll("a").forEach((a) =>
+    a.addEventListener("click", () => setOpen(false)),
+  );
+</script>
+
+<style>
+  .hdr {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    background: rgba(10, 9, 8, 0.55);
+    border-bottom: 1px solid transparent;
+    transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+  }
+  .hdr.scrolled {
+    background: rgba(10, 9, 8, 0.82);
+    border-bottom-color: var(--border);
+  }
+  .hdr-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+    gap: 1.5rem;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+  }
+  .nav ul {
+    display: flex;
+    gap: 2rem;
+  }
+  .nav a {
+    font-size: 0.95rem;
+    color: var(--text-soft);
+    transition: color 0.2s var(--ease);
+    position: relative;
+  }
+  .nav a:hover {
+    color: var(--text);
+  }
+  .nav a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    width: 0;
+    height: 2px;
+    background: var(--accent);
+    transition: width 0.25s var(--ease);
+  }
+  .nav a:hover::after {
+    width: 100%;
+  }
+  .hdr-cta {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.9rem;
+  }
+
+  /* mobile */
+  .menu-btn {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    background: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .menu-btn span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    margin-inline: auto;
+    background: var(--text);
+    transition: transform 0.25s var(--ease), opacity 0.25s var(--ease);
+  }
+  .menu-open .menu-btn span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  .menu-open .menu-btn span:nth-child(2) {
+    opacity: 0;
+  }
+  .menu-open .menu-btn span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+  .mobile-nav {
+    border-top: 1px solid var(--border);
+    background: rgba(10, 9, 8, 0.96);
+    padding: 1rem var(--gutter) 1.5rem;
+  }
+  .mobile-nav ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .mobile-nav a {
+    display: block;
+    padding: 0.85rem 0.25rem;
+    font-size: 1.05rem;
+    color: var(--text-soft);
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-nav .m-cta {
+    color: var(--accent);
+    font-weight: 600;
+    border-bottom: none;
+  }
+
+  @media (max-width: 820px) {
+    .nav,
+    .hdr-cta {
+      display: none;
+    }
+    .menu-btn {
+      display: flex;
+    }
+  }
+</style>

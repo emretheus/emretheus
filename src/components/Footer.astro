@@ -1,0 +1,58 @@
+---
+import { SITE } from "../config";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <a href={`${base}/`} class="f-brand">
+      <img src={`${base}/favicon.svg`} width="26" height="26" alt="" />
+      <span>{SITE.name}</span>
+    </a>
+    <p class="f-meta">
+      © {SITE.handle} · {SITE.location} · Built with Astro
+    </p>
+    <a href="#top" class="f-top" aria-label="Back to top">
+      Back to top
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </a>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--border);
+    padding-block: 2.25rem;
+    background: var(--bg-elev);
+  }
+  .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .f-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 600;
+  }
+  .f-meta {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+  }
+  .f-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-soft);
+    font-size: 0.9rem;
+    transition: color 0.2s var(--ease);
+  }
+  .f-top:hover {
+    color: var(--accent);
+  }
+</style>
