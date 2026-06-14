@@ -1,8 +1,8 @@
 # Development
 
 This repository (`emretheus/emretheus`) is also Emre's personal site, built with
-[Astro](https://astro.build) and deployed to GitHub Pages at
-**https://emretheus.github.io/**.
+[Astro](https://astro.build) and deployed to GitHub Pages on the custom
+domain **https://emretheus.xyz/**.
 
 > The `README.md` is the GitHub **profile** README. This file holds the
 > technical docs for the site. Editing either one does not affect the other.
@@ -44,7 +44,7 @@ src/
 2. In the repo: **Settings → Pages → Build and deployment → Source =
    GitHub Actions**.
 3. The workflow builds and publishes automatically. Live at
-   `https://emretheus.github.io/` (this is the user-site repo, served at root).
+   `https://emretheus.xyz/` (custom domain, pinned by `public/CNAME`).
 
 ### Use a custom domain (e.g. `emre.dev`)
 

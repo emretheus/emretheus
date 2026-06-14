@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 
 # Sitemap (Astro @astrojs/sitemap generates this at build time)
-Sitemap: https://emretheus.github.io/sitemap-index.xml
+Sitemap: https://emretheus.xyz/sitemap-index.xml

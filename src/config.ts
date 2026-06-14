@@ -17,7 +17,7 @@ export const SITE = {
     "Emre Ulgac (emretheus) — Berlin-based full-stack engineer building autonomous AI agents, LLM systems and Web3 infrastructure. Available for freelance AI agent development.",
   location: "Berlin, Germany",
   /** Canonical absolute URL of the deployed site (no trailing slash). */
-  url: "https://emretheus.github.io",
+  url: "https://emretheus.xyz",
   /** Path to the social-share image, relative to /public */
   ogImage: "/og-image.png",
   /** Locale */

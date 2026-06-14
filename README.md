@@ -29,7 +29,7 @@ taking ideas from prototype to production.
 
 ### Connect
 
-- Website — **[emretheus.github.io](https://emretheus.github.io)**
+- Website — **[emretheus.xyz](https://emretheus.xyz)**
 - LinkedIn — [in/emre-ulgac](https://www.linkedin.com/in/emre-ulgac)
 - Email — [emretheus@proton.me](mailto:emretheus@proton.me)
 
