@@ -39,6 +39,20 @@ export const SITE = {
   ],
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ANALYTICS — loads only in production. Fill ONE id; leave the rest "".
+// Leave all "" to disable analytics entirely.
+//
+//  • Microsoft Clarity (free forever — heatmaps, session replay, AI summaries):
+//      https://clarity.microsoft.com → New project → copy the Project ID.
+//  • Counter.dev (free — dead-simple visit counts):
+//      https://counter.dev → sign up → copy your data-id (UUID).
+// ─────────────────────────────────────────────────────────────────────────────
+export const ANALYTICS = {
+  clarity: "",
+  counterdev: "d06aecf4-f25e-4815-8861-1ff023113277",
+};
+
 export type SocialLink = {
   label: string;
   href: string;
