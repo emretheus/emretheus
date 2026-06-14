@@ -5,15 +5,13 @@ import sitemap from "@astrojs/sitemap";
 // ─────────────────────────────────────────────────────────────────────────────
 // DEPLOYMENT CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-// This is the user-site repo (github.com/emretheus/emretheus), so GitHub Pages
-// serves it at the ROOT → https://emretheus.github.io/  (base must be "/").
+// Served via GitHub Pages on the custom domain https://emretheus.xyz/
+// (base "/"). The domain is pinned by public/CNAME so it survives deploys.
 //
-// Using a CUSTOM DOMAIN (e.g. emre.dev)?
-//   1. set SITE: "https://emre.dev"
-//   2. keep BASE: "/"
-//   3. add a CNAME file in /public with your domain (see public/CNAME.example)
+// Reverting to the github.io URL? set SITE back to
+// "https://emretheus.github.io" and remove public/CNAME.
 // ─────────────────────────────────────────────────────────────────────────────
-const SITE = "https://emretheus.github.io";
+const SITE = "https://emretheus.xyz";
 const BASE = "/";
 
 export default defineConfig({
