@@ -1,0 +1,85 @@
+---
+import SEO from "../components/SEO.astro";
+import "../styles/global.css";
+import { SITE } from "../config";
+
+interface Props {
+  title?: string;
+  description?: string;
+  path?: string;
+}
+
+const { title, description, path } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<!doctype html>
+<html lang={SITE.lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0908" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="generator" content={Astro.generator} />
+
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <link rel="apple-touch-icon" href={`${base}/favicon.svg`} />
+    <link rel="sitemap" href={`${base}/sitemap-index.xml`} />
+
+    <!-- Preconnect to font CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
+    <SEO title={title} description={description} path={path} />
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+    <slot />
+
+    <script>
+      // Reveal-on-scroll using IntersectionObserver (progressive enhancement).
+      const els = document.querySelectorAll(".reveal");
+      if ("IntersectionObserver" in window && els.length) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add("is-visible");
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { rootMargin: "0px 0px -8% 0px", threshold: 0.1 },
+        );
+        els.forEach((el) => io.observe(el));
+      } else {
+        els.forEach((el) => el.classList.add("is-visible"));
+      }
+    </script>
+
+    <style>
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 999;
+        background: var(--accent);
+        color: #04130f;
+        padding: 0.6rem 1rem;
+        border-radius: 0 0 8px 0;
+        font-weight: 600;
+      }
+      .skip-link:focus {
+        left: 0;
+      }
+    </style>
+  </body>
+</html>
