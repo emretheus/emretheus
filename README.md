@@ -17,7 +17,7 @@ taking ideas from prototype to production.
 
 | Project | What it is |
 | --- | --- |
-| [**BioAgents**](https://github.com/emretheus/BioAgents) | Multi-agent AI for autonomous research in the life sciences |
+| [**BioAgents**](https://github.com/bio-xyz/BioAgents) | Multi-agent AI for autonomous research in the life sciences |
 | [**grex**](https://github.com/emretheus/grex) | One interface to run Claude, Codex, Cursor & Gemini agents in parallel |
 | [**meetwit**](https://github.com/emretheus/meetwit) | Local-first AI meeting assistant with on-device transcription |
 | [**inclave**](https://github.com/emretheus/inclave) | Private, on-device AI over your local files (Ollama) |
