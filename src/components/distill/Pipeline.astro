@@ -1,0 +1,224 @@
+---
+interface Step {
+  label: string;
+  detail: string;
+}
+interface Group {
+  label: string;
+  detail: string;
+  steps: number[];
+}
+interface Props {
+  steps: Step[];
+  groups?: Group[];
+  caption?: string;
+}
+const { steps, groups, caption } = Astro.props;
+const canDistill = Boolean(groups && groups.length);
+---
+
+<div class="pipe" data-pipe>
+  <div class="pipe-head">
+    <span class="label pipe-mode" data-pipe-mode>System view</span>
+    {
+      canDistill && (
+        <button class="control" type="button" data-pipe-toggle>
+          <span data-pipe-toggle-label>Distill</span>
+          <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path
+              d="M2 4.5 6 8.5 10 4.5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      )
+    }
+  </div>
+
+  <div class="pipe-grid">
+    <ol class="pipe-steps" data-pipe-steps>
+      {
+        steps.map((s, i) => (
+          <li>
+            <button type="button" class="pipe-node" data-pipe-node data-i={i}>
+              <span class="pipe-num label">{String(i + 1).padStart(2, "0")}</span>
+              <span class="pipe-name">{s.label}</span>
+            </button>
+          </li>
+        ))
+      }
+    </ol>
+
+    {
+      canDistill && (
+        <ol class="pipe-groups" data-pipe-groups hidden>
+          {groups!.map((g, gi) => (
+            <li>
+              <button type="button" class="pipe-node group" data-pipe-group data-i={gi}>
+                <span class="pipe-group-label">{g.label}</span>
+                <span class="pipe-group-steps label">
+                  {g.steps.map((si) => String(si + 1).padStart(2, "0")).join(" · ")}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )
+    }
+
+    <div class="pipe-detail">
+      <p class="pipe-detail-text" data-pipe-detail aria-live="polite">
+        {steps[0]?.detail}
+      </p>
+    </div>
+  </div>
+
+  {caption && <p class="pipe-cap label">{caption}</p>}
+</div>
+
+<script define:vars={{ steps, groups }}>
+  const pipe = document.querySelector("[data-pipe]");
+  const detail = pipe?.querySelector("[data-pipe-detail]");
+  const mode = pipe?.querySelector("[data-pipe-mode]");
+  const toggle = pipe?.querySelector("[data-pipe-toggle]");
+  const toggleLabel = pipe?.querySelector("[data-pipe-toggle-label]");
+  const stepsList = pipe?.querySelector("[data-pipe-steps]");
+  const groupsList = pipe?.querySelector("[data-pipe-groups]");
+  const stepData = steps || [];
+  const groupData = groups || [];
+
+  const setActive = (el) => {
+    pipe
+      ?.querySelectorAll(".pipe-node")
+      .forEach((n) => n.classList.toggle("is-active", n === el));
+  };
+
+  const bind = (els, data) => {
+    els?.forEach((el, i) => {
+      const show = () => {
+        if (detail) detail.textContent = data[i].detail;
+        setActive(el);
+      };
+      el.addEventListener("click", show);
+      el.addEventListener("focus", show);
+      el.addEventListener("mouseenter", show);
+    });
+  };
+
+  const stepNodes = Array.from(pipe?.querySelectorAll("[data-pipe-node]") || []);
+  const groupNodes = Array.from(pipe?.querySelectorAll("[data-pipe-group]") || []);
+  bind(stepNodes, stepData);
+  bind(groupNodes, groupData);
+
+  let distilled = false;
+  toggle?.addEventListener("click", () => {
+    distilled = !distilled;
+    if (stepsList) stepsList.hidden = distilled;
+    if (groupsList) groupsList.hidden = !distilled;
+    if (mode) mode.textContent = distilled ? "Distilled view" : "System view";
+    if (toggleLabel) toggleLabel.textContent = distilled ? "Unfold" : "Distill";
+    toggle.setAttribute("aria-pressed", String(distilled));
+    const first = distilled ? groupNodes[0] : stepNodes[0];
+    if (first) {
+      first.click();
+    }
+    if (detail && !first) {
+      detail.textContent = distilled ? "" : stepData[0]?.detail ?? "";
+    }
+  });
+</script>
+
+<style>
+  .pipe {
+    background: var(--bg-2);
+  }
+  .pipe-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.15rem 0.5rem;
+  }
+  .pipe-mode {
+    color: var(--ash);
+  }
+
+  .pipe-grid {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1.1fr) 1fr;
+  }
+  .pipe-steps,
+  .pipe-groups {
+    border-right: 1px solid var(--line);
+  }
+
+  .pipe-node {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.85rem 1rem;
+    transition: background 0.25s var(--ease), color 0.25s var(--ease);
+  }
+  .pipe-node:hover,
+  .pipe-node:focus-visible {
+    background: var(--bg-3);
+  }
+  .pipe-node.is-active {
+    background: var(--heat);
+  }
+  .pipe-num {
+    font-size: 0.66rem;
+  }
+  .pipe-name {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bone);
+  }
+
+  .pipe-node.group {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-block: 1.1rem;
+  }
+  .pipe-group-label {
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--bone);
+  }
+  .pipe-group-steps {
+    font-size: 0.62rem;
+  }
+
+  .pipe-detail {
+    padding: 1rem;
+    display: flex;
+    align-items: flex-start;
+  }
+  .pipe-detail-text {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--ash);
+  }
+
+  .pipe-cap {
+    padding: 1rem 1.15rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 720px) {
+    .pipe-grid {
+      grid-template-columns: 1fr;
+    }
+    .pipe-steps,
+    .pipe-groups {
+      border-right: none;
+    }
+  }
+</style>

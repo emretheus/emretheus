@@ -1,11 +1,11 @@
 # Development
 
-This repository (`emretheus/emretheus`) is also Emre's personal site, built with
-[Astro](https://astro.build) and deployed to GitHub Pages on the custom
+This repository is Emre's personal site — **Emretheus · Fire, distilled** — built
+with [Astro](https://astro.build) and deployed to GitHub Pages on the custom
 domain **https://emretheus.xyz/**.
 
-> The `README.md` is the GitHub **profile** README. This file holds the
-> technical docs for the site. Editing either one does not affect the other.
+> `README.md` is the GitHub **profile** README; this file is the technical doc
+> for the site. Editing one does not affect the other.
 
 ## Develop
 
@@ -16,56 +16,83 @@ npm run build    # production build → dist/
 npm run preview  # preview the production build locally
 ```
 
-## Edit content
+## The idea
 
-Everything lives in **`src/config.ts`** — name, role, tagline, SEO
-description/keywords, social links, projects, and freelance services. Update
-that one file and the whole site (and its SEO metadata) updates.
+The site is a publication, not a portfolio: **distillations** take hard concepts
+apart and end in one sentence; **systems** are case studies told through their
+decisions; **fragments** are short notes; **fire** is what's in progress now.
+Typographic system: Geist + Geist Mono (Fontsource). No italics; hairline-free
+surfaces; the ember accent marks understanding.
 
 ## Project structure
 
 ```
-public/            static assets (favicon, og-image, robots.txt, .nojekyll)
+public/                static assets (favicon, og-image, robots.txt, CNAME)
 src/
-  config.ts        single source of truth — content + SEO
+  config.ts            identity, nav, socials, analytics
+  data/                content sources of truth
+    distillations.ts   published distillations + the queue
+    systems.ts         case-study index
+    fragments.ts       short notes
+    fire.ts            current experiments
+  lib/                 small logic shared by server render + client scripts
   components/
-    SEO.astro      all meta tags + JSON-LD structured data
-    Header / Hero / About / Projects / Services / Contact / Footer
+    Nav / Footer / Mark / SEO
+    home/TermField.astro          the drifting field on the homepage
+    ui/                           article building blocks:
+                                  Section, Deeper, MathOnly, Term, Figure
+    distill/                      interactive labs:
+                                  Pipeline, ChunkLab, RerankDemo, MetricsLab,
+                                  VectorSpace, LexicalSemantic, Bm25Lab
+    systems/DecisionMap.astro     SYSTEM / DISTILLED decision diagram
   layouts/
-    BaseLayout.astro   <head>, fonts, theme, scroll-reveal
-  styles/global.css    design tokens + base styles
-  pages/index.astro    assembles the page
-.github/workflows/deploy.yml   GitHub Pages CI/CD
+    BaseLayout.astro              shell: fonts, nav, footer, reading depth
+    DistillationLayout.astro      question → sections → one sentence → next
+  pages/
+    index.astro                   homepage
+    fire.astro · fragments.astro
+    distillations/index.astro · <slug>.mdx
+    systems/index.astro · grex.astro
+  styles/global.css               design tokens + primitives
 ```
+
+## Write a distillation
+
+1. Copy an existing article, e.g.
+   `src/pages/distillations/semantic-search.mdx` → `your-slug.mdx`.
+2. Set the frontmatter: `title`, `question`, `oneSentence`, `fields`,
+   `readingTime`, `slug`, `description`. The layout renders **01 — The question**
+   and **06 — One sentence** for you; write sections 02–05 with:
+
+   - `<Section n="02" label="The intuition" title="…">` for each part,
+   - `<Deeper>` for content shown at the “Deeper” reading depth,
+   - `<MathOnly>` for content shown only at “Math” depth,
+   - `<Term def="…">word</Term>` for inline plain-English definitions,
+   - `<Figure caption="…">` around any interactive lab.
+
+3. Add the entry to `src/data/distillations.ts`. The index page, the “next”
+   link and the homepage “Recently distilled” block all derive from that file.
+
+## Write a system case study
+
+1. Add an entry to `src/data/systems.ts` (`status: "case study"`).
+2. Create `src/pages/systems/<name>.astro` following `grex.astro`:
+   problem → constraints → `<DecisionMap stages={…} />` → decisions
+   (context → options → chosen → why → cost) → trade-offs → what failed →
+   what I learned. Give stages and decision cards matching `D#` ids to get the
+   two-way highlight.
 
 ## Deploy (GitHub Pages)
 
 1. Push to `main`.
-2. In the repo: **Settings → Pages → Build and deployment → Source =
-   GitHub Actions**.
-3. The workflow builds and publishes automatically. Live at
-   `https://emretheus.xyz/` (custom domain, pinned by `public/CNAME`).
+2. The workflow in `.github/workflows/deploy.yml` builds and publishes
+   automatically (Settings → Pages → Source = GitHub Actions).
+3. Live at `https://emretheus.xyz/` (custom domain pinned by `public/CNAME`).
 
-### Use a custom domain (e.g. `emre.dev`)
+## SEO checklist (wired in)
 
-1. In `astro.config.mjs`: set `SITE = "https://emre.dev"` (keep `BASE = "/"`).
-2. In `src/config.ts`: set `url` to your domain and update `robots.txt` +
-   the sitemap line.
-3. Rename `public/CNAME.example` → `public/CNAME` (edit the domain inside).
-4. Point your domain's DNS at GitHub Pages and set the custom domain in
-   **Settings → Pages**.
-
-## SEO checklist (already wired in)
-
-- ✅ Unique `<title>` + meta description + keywords
-- ✅ Open Graph + Twitter `summary_large_image` cards (1200×630 image)
-- ✅ JSON-LD: `Person`, `WebSite`, `ProfessionalService`
-- ✅ Canonical URL, `robots` directives, `robots.txt`
-- ✅ Auto-generated `sitemap-index.xml`
-- ✅ Semantic HTML, skip-link, reduced-motion + accessible focus states
-- ✅ Responsive, mobile-first, dark theme
-
-After going live, submit your sitemap in
-[Google Search Console](https://search.google.com/search-console) and validate
-rich results with the
-[Rich Results Test](https://search.google.com/test/rich-results).
+- Unique `<title>`, description, keywords, canonical + OG/Twitter cards
+- JSON-LD: `Person`, `WebSite`
+- `robots.txt`, sitemap generated by `@astrojs/sitemap`
+- Semantic HTML, skip link, visible focus, `prefers-reduced-motion` respected
+- Privacy-friendly analytics only (Counter.dev, production builds)

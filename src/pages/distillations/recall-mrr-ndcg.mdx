@@ -1,0 +1,127 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Recall@K, MRR, nDCG"
+question: "How do you know a retrieval system got better — without trusting your own vibes?"
+oneSentence: "Retrieval metrics are three questions asked of one ranked list: did you find it, how high, and how well did you order everything that matters?"
+fields: ["evaluation", "retrieval"]
+readingTime: "15 min"
+slug: "recall-mrr-ndcg"
+description: "Retrieval evaluation explained: golden sets, Recall@K, MRR and nDCG — what each metric actually measures, how to compute them, and the ways they lie to you."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import MetricsLab from "../../components/distill/MetricsLab.astro";
+
+<Section n="02" label="The intuition" title="You cannot improve what you refuse to measure.">
+
+“It feels better” is not an evaluation. It is a mood. And retrieval is exactly the kind of system where mood lies: your memory is anchored to the easy queries you happened to test.
+
+To measure anything you need two ingredients:
+
+1. **A golden set** — a small collection of real queries with known-good answers. Ten honest queries beat a thousand invented ones.
+2. **A ranked list** — what the system returned for each query, in order.
+
+Then you ask three different questions of that list:
+
+- **Recall@K** — of everything relevant, how much is inside the first K results? *Did you find it?*
+- **MRR** — at what rank does the first relevant result appear? *How long before the first hit?*
+- **nDCG@K** — how well is the entire top of the list ordered, including how *good* each result is? *Is the ordering itself right?*
+
+<Figure caption="Six results in a fixed order. Change the grades and K — all three metrics recompute.">
+  <MetricsLab />
+</Figure>
+
+They can disagree, and the disagreement is the useful part. A system can have excellent recall (everything is in the top 20) and bad MRR (the first relevant result is buried at number 9). Or great MRR and poor nDCG — the right answer is first, but the rest of the list is nonsense.
+
+<Deeper>
+
+Where do golden sets come from? Real queries — support tickets, search logs, your own questions while using the product. You judge each query's results once, by hand, and keep the file in the repository like code. It is small, imperfect, and enormously better than nothing.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="Three formulas, each answering a different question.">
+
+With binary relevance — a result is either relevant or not:
+
+`Recall@K = (relevant results in top K) / (all relevant results)`
+
+`MRR = 1 / rank of the first relevant result`
+
+**nDCG** is the careful one, because it handles *degrees* of relevance. Each result earns a gain depending on its grade, discounted by how far down the list it sits:
+
+`DCG@K = Σ (2^relᵢ − 1) / log₂(i + 1)`
+
+Then divide by the ideal: the DCG you would get if the same results were sorted by grade — that ideal is called IDCG, and the ratio is nDCG.
+
+`nDCG@K = DCG@K / IDCG@K`
+
+The `2^rel − 1` makes a highly relevant result worth far more than two mildly relevant ones. The `log₂` discount is why rank 1 is worth much more than rank 5.
+
+<MathOnly>
+
+Precisely, with results numbered `i = 1 … K` from the top:
+
+- `DCG@K = Σᵢ (2^relᵢ − 1) / log₂(i + 1)`, with `relᵢ ∈ {0, 1, 2}` in a typical graded setup.
+- `IDCG@K = Σᵢ (2^rel*ᵢ − 1) / log₂(i + 1)`, where `rel*` is the same set of grades sorted in descending order.
+- `nDCG@K = DCG@K / IDCG@K`, and by construction `0 ≤ nDCG ≤ 1`.
+- With binary relevance, these reduce to hit-rate style measures — which is why graded judgments are worth the extra effort.
+
+Two warnings from the arithmetic itself. First, recall and nDCG are defined over the list you returned: a relevant document that the system never retrieved simply does not exist for them. Second, `K` is part of the metric — comparing `Recall@5` with `Recall@20` is comparing two different measurements.
+
+</MathOnly>
+
+<Deeper>
+
+If answering quality matters and not just ordering, add a fourth question: is the final answer *grounded* in what was retrieved? Metrics for the list and metrics for the answer are different layers, and skipping the second one is how a search system reports beautiful numbers while users still do not trust it.
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="A tiny honest dataset, measured per change.">
+
+<Figure caption="Focus a step to see what it does. Distill groups the loop into its three real jobs.">
+  <Pipeline
+    steps={[
+      { label: "Golden set", detail: "Real queries with judged results, versioned in the repository like code. Small — dozens of queries, not thousands." },
+      { label: "Run the pipeline", detail: "Every retrieval change — chunk size, model, K, reranker — runs against the same set and prints the same table." },
+      { label: "Metrics table", detail: "Recall@K, MRR, nDCG@K per query and averaged. Per-query numbers matter: averages hide the queries you broke." },
+      { label: "Compare", detail: "Diff the table between versions. A change that improves the average while destroying the worst query is not an improvement." },
+      { label: "Read examples", detail: "Open the queries that moved. Numbers tell you something changed; examples tell you what." },
+      { label: "Decide & ship", detail: "Ship the change with its table. The table becomes the regression test for the next change." },
+    ]}
+    groups={[
+      { label: "A tiny honest dataset", detail: "Judged by hand, kept in the repo, small enough to maintain. Its honesty matters more than its size.", steps: [0] },
+      { label: "Measure every change", detail: "One table, one command, per change. Consistency is what makes numbers comparable over months.", steps: [1, 2, 3] },
+      { label: "Decide with evidence", detail: "Look at the moved queries, then ship with the table attached. Trust is built from diffs, not vibes.", steps: [4, 5] },
+    ]}
+  />
+</Figure>
+
+<Deeper>
+
+This loop is what “evaluation” actually means in practice — not a fancy harness, just a repeatable run with a stable dataset. It also applies beyond retrieval: the same shape works for chunking experiments, prompt changes, and reranker choices.
+
+</Deeper>
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="The honest limits of numbers.">
+
+- **Golden sets are small and biased.** Whoever wrote them chose the queries. Rare intents stay invisible until they show up in production.
+- **nDCG cannot see what you never retrieved.** It scores the order of the list you returned, not the list you should have returned.
+- **Metrics ignore the answer.** A perfect ranked list can still produce a wrong, hallucinated final response.
+- **Averages hide query types.** Ten navigational queries plus ten conceptual ones can average to a number that describes neither.
+- **Metrics can be gamed.** Optimizing for a metric is not the same as helping a person — the metric becomes the target, and then it stops measuring what you wanted.
+- **No number replaces reading twenty examples.** Never ship a retrieval change without opening the actual queries it moved.
+
+Used honestly, metrics do one job: they tell you whether a change *moved* something. Whether it moved in the right direction is decided by reading the examples — and only then by the number.
+
+</Section>

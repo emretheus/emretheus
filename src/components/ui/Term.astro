@@ -1,0 +1,52 @@
+---
+interface Props {
+  def: string;
+}
+const { def } = Astro.props;
+---
+
+<span class="tdef">
+  <span class="tdef-word" tabindex="0"><slot /></span>
+  <span class="tdef-pop" role="tooltip">{def}</span>
+</span>
+
+<style>
+  .tdef {
+    position: relative;
+    display: inline;
+  }
+  .tdef-word {
+    border-bottom: 1px dotted var(--smoke);
+    cursor: help;
+  }
+  .tdef-word:focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: 2px;
+  }
+  .tdef-pop {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 0.5rem);
+    z-index: 20;
+    width: max-content;
+    max-width: 22rem;
+    background: var(--bg-3);
+    border: 1px solid var(--line-2);
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font-sans);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--ash);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: opacity 0.25s var(--ease), transform 0.25s var(--ease),
+      visibility 0.25s;
+  }
+  .tdef:hover .tdef-pop,
+  .tdef:focus-within .tdef-pop {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+</style>

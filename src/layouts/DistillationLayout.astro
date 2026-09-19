@@ -1,0 +1,206 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import Section from "../components/ui/Section.astro";
+import { DISTILLATIONS } from "../data/distillations";
+
+interface Props {
+  frontmatter?: Record<string, any>;
+  title?: string;
+  question?: string;
+  oneSentence?: string;
+  fields?: string[];
+  readingTime?: string;
+  slug?: string;
+  description?: string;
+}
+
+const fm = (Astro.props.frontmatter ?? Astro.props) as Record<string, any>;
+const {
+  title = "Untitled",
+  question = "",
+  oneSentence = "",
+  fields = [],
+  readingTime = "",
+  slug = "",
+  description,
+} = fm;
+
+const current = DISTILLATIONS.findIndex((d) => d.slug === slug);
+const next = DISTILLATIONS[(current + 1) % DISTILLATIONS.length];
+---
+
+<BaseLayout
+  title={`${title} — distilled · Emretheus`}
+  description={description ?? question}
+  path={`/distillations/${slug}/`}
+>
+  <article class="dist">
+    <header class="dist-head">
+      <div class="wrap">
+        <p class="label label-ember reveal">Distillation</p>
+        <h1 class="display dist-title reveal">{title}</h1>
+        <p class="dist-meta reveal">
+          <span class="label">{fields.join(" · ")}</span>
+          <span class="label">{readingTime}</span>
+        </p>
+      </div>
+
+      <div class="wrap dist-tools-wrap">
+        <div class="dist-tools" data-depth-control aria-label="Reading depth">
+          <span class="label">Depth</span>
+          <div class="depth-group" role="group" aria-label="Reading depth">
+            <button type="button" class="control" data-depth-btn="simple">
+              Simple
+            </button>
+            <button type="button" class="control" data-depth-btn="deeper">
+              Deeper
+            </button>
+            <button type="button" class="control" data-depth-btn="math">
+              Math
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <Section n="01" label="The question">
+        <p class="dist-question">{question}</p>
+      </Section>
+
+      <slot />
+
+      <Section n="06" label="One sentence">
+        <div class="one-sentence">
+          <p class="label label-ember">If you remember one thing</p>
+          <p class="one-sentence-text display">{oneSentence}</p>
+        </div>
+      </Section>
+
+      <nav class="dist-next" aria-label="Distillations">
+        <a class="dist-next-link" href="/distillations/">
+          <span class="label">Back to</span>
+          <span>All distillations</span>
+        </a>
+        <a class="dist-next-link next" href={`/distillations/${next.slug}/`}>
+          <span class="label">Next</span>
+          <span>{next.title}</span>
+        </a>
+      </nav>
+    </div>
+  </article>
+</BaseLayout>
+
+<script>
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("[data-depth-btn]"),
+  );
+  const root = document.documentElement;
+
+  const apply = (depth: string) => {
+    root.dataset.depth = depth;
+    buttons.forEach((b) =>
+      b.setAttribute(
+        "aria-pressed",
+        String(b.dataset.depthBtn === depth),
+      ),
+    );
+  };
+
+  apply(root.dataset.depth || "deeper");
+
+  buttons.forEach((b) => {
+    b.addEventListener("click", () => {
+      const depth = b.dataset.depthBtn || "deeper";
+      apply(depth);
+      try {
+        localStorage.setItem("emretheus:depth", depth);
+      } catch (e) {}
+    });
+  });
+</script>
+
+<style>
+  .dist-head {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+  .dist-title {
+    margin-top: 1rem;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    font-weight: 600;
+  }
+  .dist-meta {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .dist-tools-wrap {
+    position: sticky;
+    top: 65px;
+    z-index: 40;
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    padding-block: 0.85rem;
+    background: var(--bg-2);
+  }
+  .dist-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .depth-group {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .dist-question {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    line-height: 1.35;
+    color: var(--bone);
+    max-width: 34ch;
+  }
+
+  .one-sentence {
+    border: 1px solid var(--ember-dim);
+    background: var(--heat);
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    max-width: 44rem;
+  }
+  .one-sentence-text {
+    margin-top: 0.9rem;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 500;
+    line-height: 1.25;
+  }
+
+  .dist-next {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    padding-block: 0;
+  }
+  .dist-next-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 1.05rem;
+    color: var(--ash);
+    transition: color 0.3s var(--ease);
+  }
+  .dist-next-link.next {
+    text-align: right;
+  }
+  .dist-next-link:hover {
+    color: var(--ember);
+  }
+
+  @media (max-width: 780px) {
+    .dist-tools-wrap {
+      top: 0;
+    }
+  }
+</style>

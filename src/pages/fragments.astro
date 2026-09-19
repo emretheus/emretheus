@@ -1,0 +1,82 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { FRAGMENTS } from "../data/fragments";
+---
+
+<BaseLayout
+  title="Fragments — Emretheus"
+  description="Short observations, definitions and notes that don't need a whole distillation."
+  path="/fragments/"
+>
+  <header class="page-head">
+    <div class="wrap">
+      <p class="label label-ember reveal">Fragments</p>
+      <h1 class="display page-title reveal">Notes in passing.</h1>
+      <p class="page-lead reveal">
+        Short observations, definitions and half-formed positions. Most of them
+        don't need a whole distillation — they just need to be said.
+      </p>
+    </div>
+  </header>
+
+  <section class="wrap">
+    <ol class="frag-list">
+      {
+        FRAGMENTS.map((f) => (
+          <li class="frag reveal" id={f.id}>
+            <p class="label frag-meta">
+              {f.kind} · {f.date}
+            </p>
+            <h2 class="frag-title">{f.title}</h2>
+            {f.body.map((p) => (
+              <p class="frag-body">{p}</p>
+            ))}
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-head {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+    padding-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .page-title {
+    margin-top: 1rem;
+    font-size: clamp(2rem, 5.5vw, 4rem);
+    font-weight: 600;
+    letter-spacing: -0.045em;
+  }
+  .page-lead {
+    margin-top: 1.25rem;
+    color: var(--ash);
+    max-width: 56ch;
+    font-size: 1.06rem;
+  }
+
+  .frag-list {
+    display: grid;
+    gap: clamp(2.5rem, 6vw, 4rem);
+  }
+  .frag {
+    max-width: 62ch;
+    scroll-margin-top: 96px;
+  }
+  .frag-meta {
+    color: var(--smoke);
+    margin-bottom: 0.6rem;
+  }
+  .frag-title {
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+  .frag-body {
+    margin-top: 0.85rem;
+    color: var(--ash);
+    font-size: 1.04rem;
+    line-height: 1.7;
+  }
+</style>

@@ -1,0 +1,233 @@
+---
+// Reranking demo: a fast first pass gets the order approximately right;
+// a cross-encoder reads query + document together and fixes the top.
+---
+
+<div class="rr" data-rr>
+  <div class="rr-head">
+    <span class="label">Rerank lab</span>
+    <p class="rr-query label">query · “What do I get if the service keeps going down?”</p>
+  </div>
+
+  <div class="rr-bar">
+    <span class="label rr-mode" data-rr-mode>Stage 1 · vector search</span>
+    <button class="control" type="button" data-rr-toggle aria-pressed="false">
+      <span data-rr-toggle-label>Rerank</span>
+      <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
+        <path
+          d="M2 4.5 6 8.5 10 4.5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
+    </button>
+  </div>
+
+  <ol class="rr-list" data-rr-list></ol>
+  <p class="rr-note" data-rr-note aria-live="polite"></p>
+</div>
+
+<style is:global>
+  .rr {
+    background: var(--bg-2);
+  }
+  .rr-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .rr-query {
+    color: var(--ash);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: none;
+  }
+  .rr-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 1.15rem 0.9rem;
+  }
+  .rr-mode {
+    color: var(--ash);
+  }
+
+  .rr-list {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0 1.15rem;
+  }
+  .rr-row {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: baseline;
+    background: var(--bg-3);
+    padding: 0.75rem 0.9rem;
+    transition: background 0.4s var(--ease), opacity 0.4s var(--ease);
+  }
+  .rr-row.is-top {
+    background: var(--heat);
+  }
+  .rr-rank {
+    font-size: 0.66rem;
+  }
+  .rr-body {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .rr-text {
+    font-size: 0.95rem;
+    color: var(--ash);
+    line-height: 1.5;
+  }
+  .rr-row.is-top .rr-text {
+    color: var(--bone);
+  }
+  .rr-tag {
+    font-size: 0.6rem;
+    color: var(--smoke);
+  }
+  .rr-scores {
+    display: flex;
+    gap: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+  .rr-score {
+    color: var(--smoke);
+  }
+  .rr-score b {
+    font-weight: 500;
+    color: var(--ash);
+  }
+  .rr-row.is-top .rr-score b {
+    color: var(--ember);
+  }
+
+  .rr-note {
+    padding: 1rem 1.15rem 1.15rem;
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  @media (max-width: 720px) {
+    .rr-row {
+      grid-template-columns: 2rem minmax(0, 1fr);
+    }
+    .rr-scores {
+      grid-column: 2;
+      margin-top: 0.35rem;
+    }
+  }
+</style>
+
+<script>
+  interface DemoDoc {
+    id: string;
+    text: string;
+    tag: string;
+    vector: number;
+    cross: number;
+  }
+
+  const DOCS: DemoDoc[] = [
+    {
+      id: "D1",
+      text: "Billing cycles and invoice dates are described in section 4.",
+      tag: "mentions invoices — not the consequence",
+      vector: 0.87,
+      cross: 0.34,
+    },
+    {
+      id: "D2",
+      text: "The service level target is 99.9% availability, measured monthly.",
+      tag: "same topic, no answer",
+      vector: 0.89,
+      cross: 0.61,
+    },
+    {
+      id: "D3",
+      text: "If the monthly target is missed, the customer receives a service credit on the next invoice.",
+      tag: "contains the actual consequence",
+      vector: 0.86,
+      cross: 0.95,
+    },
+    {
+      id: "D4",
+      text: "Support hours are 09:00–18:00 CET on business days.",
+      tag: "unrelated",
+      vector: 0.71,
+      cross: 0.18,
+    },
+    {
+      id: "D5",
+      text: "Either party may terminate this agreement with thirty days written notice.",
+      tag: "different clause entirely",
+      vector: 0.78,
+      cross: 0.22,
+    },
+  ];
+
+  const root = document.querySelector<HTMLElement>("[data-rr]");
+  if (root) {
+    const list = root.querySelector<HTMLElement>("[data-rr-list]")!;
+    const toggle = root.querySelector<HTMLButtonElement>("[data-rr-toggle]")!;
+    const toggleLabel = root.querySelector<HTMLElement>("[data-rr-toggle-label]")!;
+    const mode = root.querySelector<HTMLElement>("[data-rr-mode]")!;
+    const note = root.querySelector<HTMLElement>("[data-rr-note]")!;
+    let reranked = false;
+
+    const render = () => {
+      const rows = [...DOCS].sort((a, b) =>
+        reranked ? b.cross - a.cross : b.vector - a.vector,
+      );
+
+      list.innerHTML = rows
+        .map(
+          (d, i) => `
+        <li class="rr-row${i === 0 ? " is-top" : ""}">
+          <span class="rr-rank label">${String(i + 1).padStart(2, "0")}</span>
+          <span class="rr-body">
+            <span class="rr-text">${d.text}</span>
+            ${reranked ? `<span class="rr-tag label">${d.tag}</span>` : ""}
+          </span>
+          <span class="rr-scores">
+            <span class="rr-score">vector <b>${d.vector.toFixed(2)}</b></span>
+            ${reranked ? `<span class="rr-score">cross <b>${d.cross.toFixed(2)}</b></span>` : ""}
+          </span>
+        </li>`,
+        )
+        .join("");
+
+      if (reranked) {
+        mode.textContent = "Stage 2 · cross-encoder";
+        toggleLabel.textContent = "Reset";
+        toggle.setAttribute("aria-pressed", "true");
+        note.textContent =
+          "The cross-encoder read the query and each document together — and moved the consequence to the top. Same corpus, same query, better order. It only looked at five documents; that is why production systems only rerank the shortlist.";
+      } else {
+        mode.textContent = "Stage 1 · vector search";
+        toggleLabel.textContent = "Rerank";
+        toggle.setAttribute("aria-pressed", "false");
+        note.textContent =
+          "Vector search compared summaries and put “service level target” first — close in meaning, wrong in answer. The document that actually answers the question sits at #3.";
+      }
+    };
+
+    toggle.addEventListener("click", () => {
+      reranked = !reranked;
+      render();
+    });
+
+    render();
+  }
+</script>

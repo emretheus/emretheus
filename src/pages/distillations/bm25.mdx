@@ -1,0 +1,114 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "BM25"
+question: "How does a search engine decide which document is most relevant — using nothing but word counts?"
+oneSentence: "BM25 ranks a document by how often your words appear in it, weighted by how rare those words are, corrected for document length."
+fields: ["retrieval", "ranking"]
+readingTime: "16 min"
+slug: "bm25"
+description: "BM25 explained from intuition to formula: term frequency, inverse document frequency, length normalization — with a live lab where you tune k₁ and b and watch the ranking move."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import Bm25Lab from "../../components/distill/Bm25Lab.astro";
+
+<Section n="02" label="The intuition" title="Three ordinary ideas, stacked.">
+
+Imagine you search for “vector database”. You have five documents. Document A says “vector” five times; document B mentions it once. Which one is more likely to be about vectors? The one that keeps talking about them.
+
+So: **how often** a word appears matters. That is term frequency.
+
+But there is a complication. If every document contains the word “database”, then seeing it in a document tells you almost nothing. Rare words discriminate; common words are background noise. That is how **rare** a word is: inverse document frequency.
+
+And one more: a long document has more chances to repeat any word at all. Raw counts quietly favour the longest page. So the count should be corrected for **how long** the document is.
+
+Three ordinary ideas — frequency, rarity, length — and BM25 is simply the way they are combined.
+
+<Deeper>
+
+Why do repeats stop mattering so quickly? Because the second mention of a word adds less evidence than the first, and the tenth adds almost nothing. Relevance saturates. BM25 models this with a curve whose steepness is controlled by a knob called k₁.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="The equation looks intimidating. The idea isn’t.">
+
+The formula below is the three ideas stacked: rarity multiplies frequency, and frequency is curved and length-corrected.
+
+<Figure caption="Use the query buttons, then move k₁ and b. Hover a card to light up its part of the formula.">
+  <Bm25Lab />
+</Figure>
+
+Read the breakdown table as a sentence: *this term appears this often, it is this rare, the document is this long — so it contributes this much.*
+
+<Deeper>
+
+**k₁ controls saturation.** At k₁ = 0 a word counts once, whether it appears once or fifty times. At high k₁, extra occurrences keep adding. Most tuned systems land somewhere around 1.2 — strong preference for frequency, with diminishing returns.
+
+**b controls length correction.** At b = 0, document length is ignored. At b = 1, length is fully compensated. Around 0.75 is a common default. Neither default is truth; both are starting points for your data.
+
+</Deeper>
+
+<MathOnly>
+
+With a query of terms *q* and document *D*:
+
+`score(D, Q) = Σ IDF(qᵢ) · f(qᵢ, D)·(k₁ + 1) / ( f(qᵢ, D) + k₁·(1 − b + b·|D|/avgdl) )`
+
+- `f(qᵢ, D)` — how many times term `qᵢ` occurs in the document. The `(k₁ + 1)` in the numerator normalises the curve so k₁ only changes its shape, not its scale.
+- `IDF(qᵢ) = ln(1 + (N − df + 0.5) / (df + 0.5))` — with `N` documents and `df` documents containing the term. The `+0.5` smoothing keeps very common terms from hitting zero or negative scores.
+- `|D| / avgdl` — the document’s length relative to the corpus average. `b` decides how much that matters.
+
+Only the ranking matters, not the absolute scores. Two documents with the same score are, as far as BM25 is concerned, equally relevant.
+
+</MathOnly>
+
+</Section>
+
+<Section n="04" label="Real system" title="Old, unglamorous, everywhere.">
+
+BM25 was published in the 1990s and is still inside most search you touch: Elasticsearch, Postgres full-text search, SQLite’s FTS5 — and small local tools, like the MCP server I use to search my own Claude Code history.
+
+<Figure caption="Focus a step to see what it does. Distill shows the three real jobs.">
+  <Pipeline
+    steps={[
+      { label: "Query", detail: "The query is tokenised by the same analysis chain that processed the documents — lowercasing, stemming, maybe stop words. A mismatch here is invisible and expensive." },
+      { label: "Inverted index", detail: "The index maps each term to the list of documents containing it (the postings). Only documents containing at least one query term are ever scored." },
+      { label: "Scoring", detail: "BM25 scores the candidates. The expensive part — reading every document — was already avoided by the index." },
+      { label: "Top-K", detail: "The shortlist, ranked. No training, no model load, no GPU: this runs in microseconds on a laptop." },
+      { label: "Hybrid merge", detail: "In modern systems, BM25 candidates and vector candidates are combined — by score fusion like reciprocal rank fusion, or by a reranker reading the shortlist." },
+      { label: "Result", detail: "The ranked list the user sees." },
+    ]}
+    groups={[
+      { label: "Query analysed", detail: "The same analysis chain on both sides: documents at index time, the query at search time.", steps: [0] },
+      { label: "Candidates found cheaply", detail: "The inverted index means you never scan the corpus — you jump straight to documents that contain the words.", steps: [1, 2] },
+      { label: "Shortlist, fused with meaning", detail: "BM25 is exact about words. Its weaknesses are where vector search begins, so the two are usually merged.", steps: [3, 4, 5] },
+    ]}
+  />
+</Figure>
+
+<Deeper>
+
+The reason BM25 survives every wave of new technology: it needs no training, no GPU, no network, and it explains itself. When a document ranks first, you can point at the exact term frequencies and IDF values that put it there. That explainability is worth a lot when search results look wrong.
+
+</Deeper>
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="What word counts cannot see.">
+
+- **Vocabulary mismatch.** You search “puppy”; the document says “dog”. To BM25 these are two unrelated strings. No amount of tuning fixes this — it is the ceiling of the method.
+- **Morphology.** “indexes” and “index” are different tokens unless you stem them. Stemming helps, and occasionally conflates things it should not — a trade, not a fix.
+- **No word order, no negation.** “not a vector database” scores like “vector database”. BM25 sees a bag of words, not a sentence.
+- **Tuning is dataset-specific.** k₁ and b are not universal constants. The defaults are a place to start, not an answer.
+- **Repetition without meaning.** Keyword stuffing works on BM25 in the same sad way it once worked on the web.
+
+Which is why the honest answer is: BM25 and embeddings belong together. One is precise about words, the other is flexible about meaning. Neither alone is a search engine.
+
+</Section>

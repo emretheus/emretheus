@@ -1,0 +1,119 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Reranking"
+question: "If vector search already found the right document, why do production systems pay for a second pass?"
+oneSentence: "A reranker is a slower, more careful reader that looks at your query and each candidate together — and fixes the order the fast pass got approximately right."
+fields: ["retrieval", "ranking"]
+readingTime: "12 min"
+slug: "reranking"
+description: "Reranking explained: why two-stage retrieval exists, how a cross-encoder differs from a vector search, what it costs, and when paying for a second pass is actually worth it."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import RerankDemo from "../../components/distill/RerankDemo.astro";
+
+<Section n="02" label="The intuition" title="Finding is easy. Ordering is hard.">
+
+The first pass of a search system is built for speed. It compares your query against millions of precomputed summaries and returns the closest ones — approximately. That word matters: it is optimized to *find*, not to *judge*.
+
+The problem is that “close in meaning” and “actually answers the question” are different things. A document can repeat your topic's vocabulary and contain nothing useful.
+
+<Figure caption="One query. Toggle Rerank and watch the order change — same corpus, same question.">
+  <RerankDemo />
+</Figure>
+
+The fix is a second stage. A <Term def="A model that reads two texts together — query and document — and outputs a single relevance score. Slower, because nothing can be precomputed.">cross-encoder</Term> takes the query and one candidate and reads them **together**, like a person opening the book. It is far more accurate and far more expensive, so you only run it on a shortlist.
+
+Think of it as two librarians. The first one walks you to the right shelf in a second — approximate, but fast. The second opens a handful of books and checks the actual pages.
+
+<Deeper>
+
+Why not rerank everything? Because the cross-encoder needs one full model pass per candidate. A vector search over a million chunks is a lookup; a cross-encoder over a million chunks is a million model calls. So the architecture is always the same shape: **cheap recall, expensive precision.**
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="Precomputed comparison vs joint reading.">
+
+The two stages differ in one structural way: when the query meets the document.
+
+A **bi-encoder** (vector search) embeds the query and the document independently:
+
+`score(q, d) = cos(E(q), E(d))`
+
+Both sides were computed long before they met — the document side at index time, the query side at search time. That is what makes it fast, and also what makes it approximate: each side is a summary.
+
+A **cross-encoder** scores them as one input:
+
+`score(q, d) = f(q ⊕ d)`
+
+The `⊕` is a concatenation. Because query and document are read together, the model can weigh individual words against each other — “does the document actually answer *this*?” — but nothing can be precomputed.
+
+<MathOnly>
+
+For a shortlist of `k` candidates, the cost of reranking is `k` forward passes of the cross-encoder. Vector search over `n` chunks is, in comparison, roughly independent of model depth; that is why `n` can be millions while `k` stays around 25–100.
+
+Reranker scores are only comparable **within one query, within one model**. Do not mix them across models or compare them to cosine values — they answer different questions on different scales.
+
+When lexical and vector stages are combined, their scores are often fused by rank rather than value — reciprocal rank fusion is the common default:
+
+`RRF(d) = Σ 1 / (60 + rank_i(d))`
+
+Rank fusion avoids the impossible question of whether a BM25 score of 12.4 is “better” than a cosine of 0.83.
+
+</MathOnly>
+
+<Deeper>
+
+Practical shortlist numbers come from budgets, not theory. 50 candidates with a small cross-encoder on GPU is a common starting point; 25 on CPU. The upper bound is latency, not quality — quality usually flattens long before cost does.
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="Two retrieval ways in, one small list out.">
+
+<Figure caption="Focus a step to see what it does. Distill groups the pipeline into its three real jobs.">
+  <Pipeline
+    steps={[
+      { label: "Query", detail: "The same query goes to both retrievers. Each one has different blind spots." },
+      { label: "Lexical + vector", detail: "BM25 catches exact words and identifiers; vectors catch meaning. Run both — they fail on different things." },
+      { label: "Fusion", detail: "Merge the two candidate lists. Rank fusion (RRF) is the usual choice, because raw scores from different systems are not comparable." },
+      { label: "Top-K", detail: "Cut to a shortlist the reranker can afford. Too small and the right document never arrives; too large and you pay for noise." },
+      { label: "Reranker", detail: "A cross-encoder reads the query with each candidate, one by one, and produces a relevance score that reflects the question, not just the topic." },
+      { label: "Top-N", detail: "The final few results — to the model for answering, or to the user as a ranked list." },
+    ]}
+    groups={[
+      { label: "Cheap recall", detail: "Two fast retrievers with different failure modes, merged by rank. The goal is coverage, not order.", steps: [0, 1, 2] },
+      { label: "One careful list", detail: "The reranker can only work with what it is given, so the shortlist size is the real decision here.", steps: [3, 4] },
+      { label: "Small final set", detail: "Fewer, better results: cheaper answers, higher-grounded context for the model, and a list a person can actually read.", steps: [5] },
+    ]}
+  />
+</Figure>
+
+<Deeper>
+
+When is a reranker *not* worth it? When candidates are already few (a small internal corpus), when queries are exact lookups (order numbers, error codes), or when latency is the product. Reranking is a precision tool for fuzzy questions over large corpora — applied everywhere else it is just a tax.
+
+</Deeper>
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="A reranker fixes order — nothing else.">
+
+- **It inherits chunking damage.** If the answer was cut in half at index time, the reranker sees half an answer and scores it honestly: badly.
+- **It cannot rescue recall.** If the right document is not in the shortlist, no reranker will find it. Bad K is a recall bug, not a ranking bug.
+- **Domain mismatch.** A cross-encoder trained on web text may not understand your legal or medical vocabulary. Rerankers are models; they have blind spots too.
+- **Latency and cost.** Every candidate is a model call. The bill and the delay both scale with the shortlist size.
+- **Score worship.** Reranker scores are relevance estimates, not truth. Thresholds copied from a blog post rarely survive contact with real data.
+- **Diminishing returns.** After roughly the first 50 candidates, extra shortlist mostly buys latency, not quality.
+
+The honest summary: reranking is the cheapest large quality win in retrieval — **after** the boring work of chunking and recall is done properly.
+
+</Section>

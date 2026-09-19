@@ -1,0 +1,397 @@
+---
+import { SITE, NAV, SOCIALS } from "../config";
+import Mark from "./Mark.astro";
+
+const path = Astro.url.pathname;
+const isActive = (href: string) =>
+  href === "/" ? path === "/" : path.startsWith(href);
+---
+
+<header class="bar">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label={`${SITE.name} — home`}>
+      <Mark size={13} />
+      <span class="brand-name">{SITE.name}</span>
+    </a>
+
+    <nav class="bar-links" aria-label="Areas">
+      {
+        NAV.map((item) => (
+          <a
+            href={item.href}
+            class:list={["bar-link", isActive(item.href) && "is-active"]}
+            aria-current={isActive(item.href) ? "page" : undefined}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <button
+      class="index-btn"
+      type="button"
+      data-index-open
+      aria-expanded="false"
+      aria-controls="index-panel"
+    >
+      <span class="label">Index</span>
+      <span class="index-glyph" aria-hidden="true"></span>
+    </button>
+  </div>
+</header>
+
+<div
+  class="index-panel"
+  id="index-panel"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Index"
+  data-index-panel
+  hidden
+>
+  <div class="wrap panel-inner">
+    <div class="panel-top">
+      <span class="label">Index — where to go</span>
+      <button class="panel-close label" type="button" data-index-close>
+        Close
+      </button>
+    </div>
+
+    <nav class="panel-rows" aria-label="All pages">
+      {
+        NAV.map((item, i) => (
+          <a
+            href={item.href}
+            class:list={["panel-row", isActive(item.href) && "is-active"]}
+            style={`--i:${i}`}
+            aria-current={isActive(item.href) ? "page" : undefined}
+            data-index-link
+          >
+            <span class="panel-name display">{item.label}</span>
+            <span class="panel-note label">{item.note}</span>
+            <svg class="panel-arrow" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                d="M5 12h14M13 6l6 6-6 6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="panel-foot">
+      <p class="panel-philosophy display">{SITE.philosophy}</p>
+      <div class="panel-socials">
+        {
+          SOCIALS.map((s) => (
+            <a
+              class="label panel-social"
+              href={s.href}
+              rel="noopener noreferrer"
+              target={s.href.startsWith("mailto:") ? undefined : "_blank"}
+            >
+              {s.label}
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ── the bar ────────────────────────────────────────────────────────── */
+  .bar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    min-height: 56px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding-block: 1rem;
+    white-space: nowrap;
+  }
+  .brand-name {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--bone);
+  }
+
+  /* fallback nav (no JS): quiet text links */
+  .bar-links {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.9rem, 2.4vw, 1.75rem);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .bar-links::-webkit-scrollbar {
+    display: none;
+  }
+  .bar-link {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ash);
+    white-space: nowrap;
+    padding-block: 1.1rem;
+    border-bottom: 1px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.25s var(--ease), border-color 0.25s var(--ease);
+  }
+  .bar-link:hover,
+  .bar-link.is-active {
+    color: var(--bone);
+    border-color: var(--ember);
+  }
+
+  .index-btn {
+    display: none;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    transition: border-color 0.25s var(--ease);
+  }
+  .index-btn:hover {
+    border-color: var(--line-2);
+  }
+  .index-btn .label {
+    color: var(--ash);
+  }
+  .index-glyph {
+    position: relative;
+    width: 12px;
+    height: 8px;
+  }
+  .index-glyph::before,
+  .index-glyph::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--ember);
+    transition: transform 0.3s var(--ease);
+  }
+  .index-glyph::before {
+    top: 0;
+  }
+  .index-glyph::after {
+    bottom: 0;
+  }
+
+  html.js .bar-links {
+    display: none;
+  }
+  html.js .index-btn {
+    display: inline-flex;
+  }
+
+  /* ── the index panel ────────────────────────────────────────────────── */
+  .index-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: var(--bg);
+    overflow-y: auto;
+    opacity: 0;
+    transition: opacity 0.35s var(--ease);
+  }
+  .index-panel.is-open {
+    opacity: 1;
+  }
+  .panel-inner {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    padding-block: 1.25rem 2rem;
+  }
+  .panel-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 1.25rem;
+  }
+  .panel-close {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.8rem;
+    color: var(--ash);
+    transition: color 0.25s var(--ease), border-color 0.25s var(--ease);
+  }
+  .panel-close:hover {
+    color: var(--ember);
+    border-color: var(--ember-dim);
+  }
+
+  .panel-rows {
+    padding-block: 0.25rem;
+  }
+  .panel-row {
+    display: flex;
+    align-items: baseline;
+    gap: 1.25rem;
+    padding-block: clamp(1.1rem, 3vw, 1.7rem);
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.5s var(--ease), transform 0.5s var(--ease),
+      padding-left 0.4s var(--ease);
+    transition-delay: calc(var(--i) * 45ms);
+  }
+  .index-panel.is-open .panel-row {
+    opacity: 1;
+    transform: none;
+  }
+  .panel-row:hover {
+    padding-left: 0.75rem;
+  }
+  .panel-name {
+    font-size: clamp(1.9rem, 5.5vw, 3.4rem);
+    font-weight: 500;
+    color: var(--ash);
+    line-height: 1;
+    transition: color 0.3s var(--ease);
+  }
+  .panel-row:hover .panel-name,
+  .panel-row.is-active .panel-name {
+    color: var(--bone);
+  }
+  .panel-note {
+    color: var(--smoke);
+  }
+  .panel-arrow {
+    margin-left: auto;
+    align-self: center;
+    color: var(--smoke);
+    transition: color 0.3s var(--ease), transform 0.4s var(--ease);
+  }
+  .panel-row:hover .panel-arrow {
+    color: var(--ember);
+    transform: translateX(4px);
+  }
+
+  .panel-foot {
+    margin-top: auto;
+    padding-top: 2.5rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .panel-philosophy {
+    font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+    color: var(--ash);
+    max-width: 28ch;
+  }
+  .panel-socials {
+    display: flex;
+    gap: 1.25rem;
+  }
+  .panel-social {
+    color: var(--ash);
+    transition: color 0.25s var(--ease);
+  }
+  .panel-social:hover {
+    color: var(--ember);
+  }
+
+  @media (max-width: 640px) {
+    .panel-row {
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+    }
+    .panel-note {
+      order: 3;
+      flex-basis: 100%;
+    }
+    .panel-arrow {
+      margin-left: auto;
+    }
+  }
+</style>
+
+<script>
+  const panel = document.querySelector<HTMLElement>("[data-index-panel]");
+  const openBtn = document.querySelector<HTMLButtonElement>("[data-index-open]");
+  const closeBtn = document.querySelector<HTMLButtonElement>("[data-index-close]");
+
+  if (panel && openBtn) {
+    let lastFocus: HTMLElement | null = null;
+
+    const focusables = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+
+    const open = () => {
+      lastFocus = document.activeElement as HTMLElement;
+      panel.hidden = false;
+      requestAnimationFrame(() => panel.classList.add("is-open"));
+      openBtn.setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+      closeBtn?.focus();
+    };
+
+    const close = () => {
+      panel.classList.remove("is-open");
+      openBtn.setAttribute("aria-expanded", "false");
+      document.body.style.overflow = "";
+      window.setTimeout(() => {
+        panel.hidden = true;
+      }, 350);
+      lastFocus?.focus();
+    };
+
+    openBtn.addEventListener("click", open);
+    closeBtn?.addEventListener("click", close);
+    panel.querySelectorAll("[data-index-link]").forEach((link) => {
+      link.addEventListener("click", () => {
+        panel.classList.remove("is-open");
+        document.body.style.overflow = "";
+      });
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !panel.hidden) close();
+      if (e.key === "Tab" && !panel.hidden) {
+        const items = focusables();
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+  }
+</script>

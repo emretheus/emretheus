@@ -1,0 +1,33 @@
+---
+interface Props {
+  caption?: string;
+  /** Let the figure break out of the prose measure. */
+  wide?: boolean;
+}
+const { caption, wide = false } = Astro.props;
+---
+
+<figure class:list={["fig", wide && "fig-wide"]}>
+  <div class="fig-well">
+    <slot />
+  </div>
+  {caption && <figcaption class="fig-cap label">{caption}</figcaption>}
+</figure>
+
+<style>
+  .fig {
+    margin-block: 2rem;
+  }
+  .fig-well {
+    background: var(--bg-2);
+    padding: clamp(1.15rem, 3vw, 1.9rem);
+  }
+  .fig-cap {
+    margin-top: 0.75rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+  }
+  .fig-wide {
+    max-width: min(72ch, 100%);
+  }
+</style>

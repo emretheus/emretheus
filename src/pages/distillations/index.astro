@@ -1,0 +1,142 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { DISTILLATIONS, DISTILLATION_QUEUE } from "../../data/distillations";
+---
+
+<BaseLayout
+  title="Distillations — Emretheus"
+  description="Deep concepts explained simply: semantic search, BM25, retrieval, LLM systems. Every distillation moves from intuition to math to a real system — and ends in one sentence."
+  path="/distillations/"
+>
+  <header class="page-head">
+    <div class="wrap">
+      <p class="label label-ember reveal">Distillations</p>
+      <h1 class="display page-title reveal">
+        Take the intimidating thing apart. Keep the part that carries the
+        meaning.
+      </h1>
+      <p class="page-lead reveal">
+        Every concept follows the same path: intuition, example, math, a real
+        system, where it breaks — and one sentence at the end. Choose your
+        depth while reading.
+      </p>
+    </div>
+  </header>
+
+  <section class="wrap">
+    <ol class="dist-list">
+      {
+        DISTILLATIONS.map((d) => (
+          <li class="dist-item reveal">
+            <a href={`/distillations/${d.slug}/`}>
+              <div class="dist-item-head">
+                <h2 class="dist-name display">{d.title}</h2>
+                <span class="label dist-meta">
+                  {d.fields.join(" · ")} — {d.readingTime}
+                </span>
+              </div>
+              <p class="dist-question">{d.question}</p>
+              <p class="dist-one">{d.oneSentence}</p>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="queue">
+      <p class="label">In the queue</p>
+      <ul class="queue-list">
+        {DISTILLATION_QUEUE.map((topic) => <li class="label">{topic}</li>)}
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-head {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+    padding-bottom: clamp(2.5rem, 6vw, 4rem);
+  }
+  .page-title {
+    margin-top: 1rem;
+    font-size: clamp(1.9rem, 4.6vw, 3.4rem);
+    font-weight: 500;
+    max-width: 32ch;
+    line-height: 1.08;
+  }
+  .page-lead {
+    margin-top: 1.5rem;
+    color: var(--ash);
+    max-width: 56ch;
+    font-size: 1.06rem;
+  }
+
+  .dist-list {
+    padding-block: 0.5rem;
+  }
+  .dist-item a {
+    display: block;
+    padding-block: clamp(1.75rem, 4.5vw, 2.75rem);
+    transition: padding-left 0.4s var(--ease);
+  }
+  .dist-item a:hover {
+    padding-left: 0.75rem;
+  }
+  .dist-item-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .dist-name {
+    font-size: clamp(1.7rem, 3.6vw, 2.6rem);
+    font-weight: 400;
+    transition: color 0.3s var(--ease);
+  }
+  .dist-item a:hover .dist-name {
+    color: var(--ember);
+  }
+  .dist-meta {
+    white-space: nowrap;
+  }
+  .dist-question {
+    margin-top: 0.8rem;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.1rem, 2vw, 1.35rem);
+    color: var(--ash);
+    max-width: 52ch;
+    line-height: 1.4;
+  }
+  .dist-one {
+    margin-top: 0.9rem;
+    color: var(--smoke);
+    max-width: 60ch;
+    font-size: 0.98rem;
+  }
+
+  .queue {
+    margin-top: clamp(4rem, 9vw, 6.5rem);
+    padding-top: 0;
+  }
+  .queue .label {
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .queue-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+  }
+  .queue-list .label {
+    color: var(--smoke);
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 640px) {
+    .dist-item-head {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+</style>

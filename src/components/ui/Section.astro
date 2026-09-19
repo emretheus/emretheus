@@ -1,0 +1,59 @@
+---
+interface Props {
+  n: string;
+  label: string;
+  title?: string;
+  id?: string;
+}
+const { n, label, title, id } = Astro.props;
+---
+
+<section class="art-section" id={id}>
+  <header class="art-head">
+    <span class="art-n label label-ember">{n}</span>
+    <span class="art-label label">{label}</span>
+  </header>
+  <div class="art-body prose">
+    {title && <h2 class="art-title display">{title}</h2>}
+    <slot />
+  </div>
+</section>
+
+<style>
+  .art-section {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    gap: clamp(1.5rem, 4vw, 3rem);
+    padding-block: clamp(3.5rem, 8vw, 5.5rem);
+  }
+  .art-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    position: sticky;
+    top: 96px;
+    align-self: start;
+  }
+  .art-n {
+    font-size: 0.8rem;
+  }
+  .art-title {
+    font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+    font-weight: 400;
+    margin-bottom: 1.5rem;
+    max-width: 30ch;
+  }
+
+  @media (max-width: 780px) {
+    .art-section {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    .art-head {
+      position: static;
+      flex-direction: row;
+      gap: 0.75rem;
+      align-items: baseline;
+    }
+  }
+</style>

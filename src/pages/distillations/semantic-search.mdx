@@ -1,0 +1,136 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Semantic Search"
+question: "How does a computer know that “dog” and “puppy” are related when they are different words?"
+oneSentence: "Semantic search finds information by comparing meaning rather than only matching words."
+fields: ["retrieval", "embeddings"]
+readingTime: "14 min"
+slug: "semantic-search"
+description: "Semantic search explained from the ground up: meaning as coordinates, cosine similarity, a real retrieval pipeline, and where it breaks — intuition first, equation later."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import VectorSpace from "../../components/distill/VectorSpace.astro";
+import LexicalSemantic from "../../components/distill/LexicalSemantic.astro";
+
+<Section n="02" label="The intuition" title="Meaning has coordinates.">
+
+Here is the problem, concretely. Five sentences. Search for “cat”.
+
+<Figure caption="Same corpus, same query — two different definitions of “match”.">
+  <LexicalSemantic />
+</Figure>
+
+Keyword search matches strings. Semantic search matches meaning. That difference is not a trick — it is geometry.
+
+Every word, sentence or document can be placed at coordinates in a meaning-space. Similar meanings end up near each other; unrelated meanings drift apart.
+
+| word   | x    | y    |
+| ------ | ---- | ---- |
+| cat    | 0.8  | 0.7  |
+| kitten | 0.75 | 0.72 |
+| car    | −0.4 | 0.1  |
+
+`cat` and `kitten` are almost on top of each other. `car` points somewhere else entirely. The numbers are made up; the geometry is not.
+
+<Term def="A learned list of numbers (coordinates) that represents the meaning of a word, sentence or document. Similar meanings get similar numbers.">Embeddings</Term> are how this gets computed. You never write the coordinates by hand.
+
+<Deeper>
+
+Why would coordinates emerge at all? Because of a boring observation about language: words that appear in similar contexts tend to mean similar things. A model trained to predict context — the word before, the word after — is forced to give “puppy” and “dog” similar numbers, because they show up in the same places. Nobody programs the similarity in. It falls out of the statistics.
+
+Two dimensions are a drawing convenience. A production embedding has hundreds or thousands of them. The geometry still works; you just can’t sketch it.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="Do these two arrows point the same way?">
+
+Forget the equation for a second. Two vectors are two arrows from the same origin. The standard question is: what is the cosine of the angle between them?
+
+- **1** — same direction: the same thing, said twice.
+- **0** — perpendicular: unrelated.
+- **−1** — opposite: an antonym, which is a strange kind of similarity.
+
+<Figure caption="Drag the ember vector. The angle — and the ranking — update as you move.">
+  <VectorSpace />
+</Figure>
+
+Move your query towards `cat`: the similarity climbs towards 1, and the angle shrinks. Swing it left towards `car`: the leading match changes. That is the whole mechanism — no round trips, no network, just directions.
+
+<Deeper>
+
+The dot product at the centre of the formula measures projection: how much of one arrow lies along the other. Divide by both lengths and the lengths stop mattering — leaving only direction.
+
+That design choice matters in practice. A two-page document and a one-line sentence about the same thing should match, even though one vector is “bigger”. Cosine similarity says: I don’t care how long or loud you are, only which way you point.
+
+</Deeper>
+
+<MathOnly>
+
+For vectors u and v:
+
+`cos(u, v) = (u · v) / (|u| · |v|)`
+
+- `u · v` — multiply component-wise and sum: `0.6·0.8 + 0.55·0.7 = 0.865`.
+- `|u|`, `|v|` — Euclidean lengths: `√(x² + y²)`.
+- In real systems both vectors are usually **normalised** first (length 1), so the denominator becomes 1 and similarity is just the dot product.
+
+With 768 dimensions the arithmetic is identical; only your ability to picture it runs out.
+
+</MathOnly>
+
+</Section>
+
+<Section n="04" label="Real system" title="Six steps, and one quiet contract.">
+
+<Figure caption="Hover or focus a step. Distill collapses the pipeline into its three real jobs.">
+  <Pipeline
+    steps={[
+      { label: "Query", detail: "The user's words arrive as text. Nothing clever has happened yet." },
+      { label: "Embedding", detail: "The query is embedded by the same model that embedded the documents, into the same space. This is the quiet contract of the whole system: both sides must speak one coordinate system. If you change the model, you re-embed everything." },
+      { label: "Vector search", detail: "Find the nearest neighbours of the query point. In practice this is an approximate index — HNSW or similar — trading a little recall for a lot of speed." },
+      { label: "Top-K documents", detail: "You get back k candidates. k is a real decision: too small and the answer is never in the list; too large and you are paying latency to rank noise." },
+      { label: "Optional reranker", detail: "A cross-encoder reads the query and each candidate together — slower and more accurate — and reorders the shortlist. Usually only the top 50 or so see this step." },
+      { label: "Result", detail: "The list the user sees. From the outside, it looks like a search box again." },
+    ]}
+    groups={[
+      { label: "Query understood", detail: "The query becomes a point in the same meaning-space as the documents. Everything downstream depends on this being true.", steps: [0, 1] },
+      { label: "Candidates fetched", detail: "An approximate nearest-neighbour index finds plausible matches without scanning the whole corpus. Top-k sets the trade between speed and coverage.", steps: [2, 3] },
+      { label: "Best chosen", detail: "The reranker re-reads the survivors and puts the most defensible answer on top. The final list is what the user judges.", steps: [4, 5] },
+    ]}
+  />
+</Figure>
+
+The pipeline is short. The work is in the parts that don’t show: how documents were split before embedding, which model was chosen, what k is, and whether anyone measured the result.
+
+<Deeper>
+
+**Chunking decides what can ever be found.** Documents are cut into pieces before embedding. Cut a table away from its caption and no retriever can reunite them. Chunk size is a trade: small chunks are precise but context-poor; large chunks carry context but blur meaning.
+
+**Approximate indexes are approximate.** HNSW-style graphs find almost all of the true nearest neighbours almost all of the time. For search that is an excellent trade; for deduplication or compliance it may not be.
+
+**Embedding models are asymmetric.** Some expect a prefix like `query:` or `passage:` on each side. Skip it and similarity quietly degrades — no error, just worse answers.
+
+</Deeper>
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="What semantic search is bad at.">
+
+- **Exact things.** Product codes, error strings, names, IDs. Embeddings blur exactly the details you need; a string match would have won.
+- **The model’s blind spots.** If the embedding model never learned your domain, “similar” is confidently wrong. Rare jargon is the usual casualty.
+- **Chunking damage.** Split a table from its caption, a clause from its contract, and retrieval can only find half of the meaning.
+- **Top-k without reranking.** Close is not the same as correct. The right document can sit at rank 6 when you asked for 5.
+- **Cost and drift.** Every document must be embedded once, and re-embedded whenever the model changes. That migration is real money and real time.
+- **Evaluation.** Without a small set of real queries and known-good answers, you are tuning by vibe. A number you don’t measure is a number you can’t improve.
+
+This is why production search is usually hybrid: word-based ranking for the exact things, vectors for the fuzzy things, a reranker to settle the argument.
+
+</Section>

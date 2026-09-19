@@ -1,0 +1,315 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DecisionMap from "../../components/systems/DecisionMap.astro";
+
+const stages = [
+  { sys: "Operator", plain: "You, one window", note: "keyboard-first" },
+  { sys: "Session orchestrator", plain: "A supervisor for every run", decision: "D3", note: "process per session" },
+  { sys: "Vendor adapters", plain: "A small bridge per agent", decision: "D2", note: "claude · codex · cursor · gemini" },
+  { sys: "Isolated worktrees", plain: "Its own copy of the repo", decision: "D1", note: "git worktrees" },
+  { sys: "Event protocol", plain: "Status without reading screens", decision: "D4" },
+  { sys: "Review & merge", plain: "You decide what lands", note: "human in the loop", decision: undefined },
+];
+
+const decisions = [
+  {
+    id: "D1",
+    title: "How agents stay out of each other's way",
+    context: "Two agents editing the same repository in one working tree overwrite each other within minutes.",
+    options: "Branches in a single working tree · full repository clones · git worktrees · containers",
+    choice: "Git worktrees — one directory per session, same history.",
+    why: "Agents need the same repo and instant setup. Clones duplicate history and cost disk; branches share one working tree, which is exactly the collision we are trying to remove.",
+    cost: "Branch hygiene becomes the user's job, and it is easy to forget a worktree exists.",
+  },
+  {
+    id: "D2",
+    title: "How to talk to the vendor CLIs",
+    context: "Claude, Codex, Cursor and Gemini ship as interactive terminals — not as tidy libraries.",
+    options: "Vendor SDKs and APIs · scraping the terminal UI · wrapping the real CLI in a pseudo-terminal",
+    choice: "Wrap the real CLI in a PTY.",
+    why: "The real CLI keeps the user's existing auth, plan and behavior. An API integration would fork behavior and bill separately — a different product wearing the same name.",
+    cost: "Terminal output is a moving target. Parsing it is the most fragile part of the system.",
+  },
+  {
+    id: "D3",
+    title: "How sessions run in parallel",
+    context: "A hung or crashed agent must not take the whole workspace down with it.",
+    options: "One multiplexed thread · thread per session · process per session with a supervisor",
+    choice: "Process per session, supervised.",
+    why: "Process boundaries are the cheapest isolation available: a dead agent is one dead process, not a dead application.",
+    cost: "Memory and startup cost per agent; the supervisor has to be written and tested like real infrastructure.",
+  },
+  {
+    id: "D4",
+    title: "Where state comes from",
+    context: "The workspace shows what every agent is doing — without depending on what the screen happens to say.",
+    options: "Read vendor log files · parse terminal output · require adapters to emit explicit events",
+    choice: "A small event protocol, emitted by each adapter.",
+    why: "Status should be a fact the system states, not a guess made from pixels. Events survive cosmetic CLI changes; screen scrapes do not.",
+    cost: "Every vendor update can break an adapter, so adapters must stay boring and small.",
+  },
+  {
+    id: "D5",
+    title: "Where the machine lives",
+    context: "Agents read real repositories with real credentials.",
+    options: "Cloud orchestration · a server you host · local-first desktop",
+    choice: "Local-first desktop. Nothing transits a server.",
+    why: "The code and the keys never leave the machine, and the app works offline. This is a product decision as much as an engineering one.",
+    cost: "No cross-device sync, and the machine's resources are the ceiling.",
+  },
+];
+---
+
+<BaseLayout
+  title="grex — Systems — Emretheus"
+  description="A system design case study: how grex runs Claude, Codex, Cursor and Gemini agents in parallel without collisions — the decisions, the trade-offs, and what failed."
+  path="/systems/grex/"
+>
+  <header class="page-head">
+    <div class="wrap">
+      <p class="label label-ember reveal">Systems · case study</p>
+      <h1 class="display page-title reveal">grex</h1>
+      <p class="page-lead reveal">
+        One workspace to run Claude, Codex, Cursor and Gemini agents in
+        parallel — and keep their work from colliding. This is the study of its
+        decisions, not a feature tour.
+      </p>
+      <p class="page-meta reveal">
+        <span class="label">orchestration · agents · desktop</span>
+        <a class="label meta-link" href="https://github.com/emretheus/grex" target="_blank" rel="noopener noreferrer">Repository ↗</a>
+      </p>
+    </div>
+  </header>
+
+  <section class="wrap sec">
+    <p class="label section-label">The problem</p>
+    <p class="prose-lead">
+      Coding agents arrived as separate terminal applications, each with its own
+      habits, auth and output. Running several at once on one repository produces
+      a different failure every day: two sessions overwrite the same file, one
+      hangs, another finishes while you were watching the third. The problem is
+      not intelligence — it is coordination.
+    </p>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The constraints</p>
+    <ul class="constraints">
+      <li><span class="label">01</span><p>Vendor CLIs are interactive TUIs — there is no clean library to call.</p></li>
+      <li><span class="label">02</span><p>Agents write to real repositories with the user's own credentials.</p></li>
+      <li><span class="label">03</span><p>Sessions are long-running and can hang, crash or produce nothing.</p></li>
+      <li><span class="label">04</span><p>It has to stay a desktop app — no server in the middle.</p></li>
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The decision map</p>
+    <div class="reveal">
+      <DecisionMap
+        stages={stages}
+        caption="D1–D5 are explained below. Hover a node to find its decision."
+      />
+    </div>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The decisions</p>
+    <ol class="decision-list">
+      {
+        decisions.map((d) => (
+          <li class="decision reveal" data-decision={d.id}>
+            <div class="decision-head">
+              <span class="decision-id label">{d.id}</span>
+              <h2 class="decision-title">{d.title}</h2>
+            </div>
+            <dl class="decision-body">
+              <div><dt class="label">Context</dt><dd>{d.context}</dd></div>
+              <div><dt class="label">Options</dt><dd>{d.options}</dd></div>
+              <div><dt class="label">Chosen</dt><dd class="is-chosen">{d.choice}</dd></div>
+              <div><dt class="label">Why</dt><dd>{d.why}</dd></div>
+              <div><dt class="label">The cost</dt><dd>{d.cost}</dd></div>
+            </dl>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The trade-offs I accepted</p>
+    <ul class="prose-list">
+      <li>Wrapping real CLIs is inherently fragile. Every vendor update is a small risk, accepted in exchange for authentic behavior.</li>
+      <li>Parallel agents consume real resources — CPU, memory, attention. Parallelism is a tool, not a default.</li>
+      <li>Auto-merging results is out of scope by design. The human stays in the merge decision.</li>
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">What failed</p>
+    <ul class="prose-list">
+      <li>Treating every vendor as the same adapter. Auth and update flows differ; the adapter interface had to become narrower and more honest.</li>
+      <li>Reading terminal screens to detect status. It broke on cosmetic output changes, and was replaced by explicit events.</li>
+      <li>Experimenting with applying agent results automatically. Reverted — the merge decision belongs to the person who owns the repo.</li>
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">What I learned</p>
+    <ul class="prose-list">
+      <li>Adapters should be boring and small. Cleverness belongs in the orchestrator, where it can be tested once.</li>
+      <li>Process isolation beats in-process cleverness: a failure should cost one session, not the workspace.</li>
+      <li>When several agents work in parallel, the scarce resource is not tokens — it is the human's ability to review.</li>
+    </ul>
+  </section>
+
+  <nav class="wrap sec sys-next" aria-label="Systems">
+    <a class="sys-next-link" href="/systems/">
+      <span class="label">Back to</span>
+      <span>All systems</span>
+    </a>
+    <p class="label">Next case study: meetwit — in the queue</p>
+  </nav>
+</BaseLayout>
+
+<style>
+  .page-head {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+    padding-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .page-title {
+    margin-top: 1rem;
+    font-size: clamp(2.6rem, 8vw, 5.5rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+  }
+  .page-lead {
+    margin-top: 1.25rem;
+    color: var(--ash);
+    max-width: 58ch;
+    font-size: 1.06rem;
+  }
+  .page-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.75rem;
+    margin-top: 1.25rem;
+  }
+  .meta-link {
+    color: var(--ember);
+  }
+  .meta-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .sec {
+    margin-top: clamp(3rem, 7vw, 5rem);
+  }
+  .section-label {
+    margin-bottom: 1.25rem;
+  }
+  .prose-lead {
+    color: var(--ash);
+    max-width: 62ch;
+    font-size: 1.06rem;
+    line-height: 1.7;
+  }
+
+  .constraints,
+  .prose-list {
+    display: grid;
+    gap: 0.9rem;
+    max-width: 62ch;
+  }
+  .constraints li,
+  .prose-list li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .constraints p,
+  .prose-list li {
+    color: var(--ash);
+    font-size: 1.02rem;
+    line-height: 1.65;
+  }
+  .prose-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .decision-list {
+    display: grid;
+    gap: clamp(2rem, 5vw, 3.25rem);
+  }
+  .decision {
+    max-width: 62ch;
+    transition: background 0.3s var(--ease);
+    padding: 1rem 1.25rem;
+    margin-inline: -1.25rem;
+    border-radius: var(--radius);
+  }
+  .decision.is-lit {
+    background: var(--heat);
+  }
+  .decision-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .decision-id {
+    color: var(--ember);
+  }
+  .decision-title {
+    font-size: clamp(1.2rem, 2.2vw, 1.5rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .decision-body {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .decision-body > div {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .decision-body dt {
+    font-size: 0.62rem;
+  }
+  .decision-body dd {
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  .decision-body dd.is-chosen {
+    color: var(--bone);
+  }
+
+  .sys-next {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    align-items: baseline;
+    margin-top: clamp(4rem, 9vw, 6rem);
+  }
+  .sys-next-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: var(--ash);
+    transition: color 0.3s var(--ease);
+  }
+  .sys-next-link:hover {
+    color: var(--ember);
+  }
+
+  @media (max-width: 640px) {
+    .decision-body > div {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+  }
+</style>

@@ -1,0 +1,25 @@
+---
+// Content shown only at "Math" depth.
+---
+
+<div class="depth depth-math">
+  <div class="depth-inner prose">
+    <p class="depth-tag label">Math</p>
+    <slot />
+  </div>
+</div>
+
+<style>
+  .depth {
+    margin-top: 1.75rem;
+    border-left: 2px solid var(--ember-dim);
+    padding-left: clamp(1rem, 2.5vw, 1.5rem);
+  }
+  .depth-inner > * + * {
+    margin-top: 1em;
+  }
+  .depth-tag {
+    color: var(--ember);
+    margin-bottom: 0.5rem;
+  }
+</style>

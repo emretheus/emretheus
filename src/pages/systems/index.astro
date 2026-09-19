@@ -1,0 +1,202 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { SYSTEMS } from "../../data/systems";
+
+const caseStudies = SYSTEMS.filter((s) => s.status === "case study");
+const queued = SYSTEMS.filter((s) => s.status !== "case study");
+---
+
+<BaseLayout
+  title="Systems — Emretheus"
+  description="System design case studies told through their decisions: constraints, the chosen path, the alternatives, the trade-offs, what failed and what I learned."
+  path="/systems/"
+>
+  <header class="page-head">
+    <div class="wrap">
+      <p class="label label-ember reveal">Systems</p>
+      <h1 class="display page-title reveal">Systems, told through their decisions.</h1>
+      <p class="page-lead reveal">
+        No feature tours. Each case study shows the constraints, the decisions
+        with the alternatives I didn't take, the trade-offs, what failed, and
+        what I learned from it.
+      </p>
+    </div>
+  </header>
+
+  <section class="wrap sec">
+    <p class="label section-label">Case studies</p>
+    <ol class="sys-list">
+      {
+        caseStudies.map((s) => (
+          <li class="sys-item">
+            <a href={s.href}>
+              <div class="sys-head">
+                <h2 class="sys-name">{s.name}</h2>
+                <span class="label sys-domains">{s.domains.join(" · ")}</span>
+              </div>
+              <p class="sys-line">{s.oneLiner}</p>
+              <p class="label sys-foot">
+                Case study
+                {s.repo && (
+                  <>
+                    {" · "}
+                    <span class="sys-repo">repo ↗</span>
+                  </>
+                )}
+              </p>
+            </a>
+            {
+              s.repo && (
+                <a
+                  class="sys-repo-link label"
+                  href={s.repo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  GitHub ↗
+                </a>
+              )
+            }
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">In the queue</p>
+    <ul class="queue">
+      {
+        queued.map((s) => (
+          <li class="queue-item">
+            <span class="queue-name">{s.name}</span>
+            <span class="queue-line">{s.oneLiner}</span>
+            <span class="label queue-domains">{s.domains.join(" · ")}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-head {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+    padding-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .page-title {
+    margin-top: 1rem;
+    font-size: clamp(2rem, 5.5vw, 4rem);
+    font-weight: 600;
+    letter-spacing: -0.045em;
+    max-width: 30ch;
+    line-height: 1.05;
+  }
+  .page-lead {
+    margin-top: 1.25rem;
+    color: var(--ash);
+    max-width: 58ch;
+    font-size: 1.06rem;
+  }
+
+  .sec {
+    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+  .section-label {
+    margin-bottom: 1.25rem;
+  }
+
+  .sys-list {
+    display: grid;
+    gap: 1rem;
+  }
+  .sys-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.5rem;
+    background: var(--bg-2);
+    padding: 1.5rem;
+    transition: background 0.3s var(--ease);
+  }
+  .sys-item:hover {
+    background: var(--bg-3);
+  }
+  .sys-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+  }
+  .sys-name {
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+  .sys-item:hover .sys-name {
+    color: var(--ember);
+  }
+  .sys-domains {
+    color: var(--smoke);
+  }
+  .sys-line {
+    margin-top: 0.6rem;
+    color: var(--ash);
+    font-size: 1.02rem;
+    max-width: 70ch;
+    line-height: 1.6;
+  }
+  .sys-foot {
+    margin-top: 0.9rem;
+    color: var(--smoke);
+  }
+  .sys-repo {
+    color: var(--ash);
+  }
+  .sys-repo-link {
+    color: var(--ash);
+    white-space: nowrap;
+    transition: color 0.3s var(--ease);
+  }
+  .sys-repo-link:hover {
+    color: var(--ember);
+  }
+
+  .queue {
+    display: grid;
+    gap: 1.25rem;
+  }
+  .queue-item {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) auto;
+    gap: 1.5rem;
+    align-items: baseline;
+  }
+  .queue-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--bone);
+  }
+  .queue-line {
+    color: var(--ash);
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+  .queue-domains {
+    color: var(--smoke);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 760px) {
+    .queue-item {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+    .sys-item {
+      grid-template-columns: 1fr;
+    }
+    .sys-repo-link {
+      justify-self: start;
+    }
+  }
+</style>

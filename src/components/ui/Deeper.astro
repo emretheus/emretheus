@@ -1,0 +1,25 @@
+---
+// Content shown for readers who chose "Deeper" or "Math" depth.
+---
+
+<div class="depth depth-deeper">
+  <div class="depth-inner prose">
+    <p class="depth-tag label">Deeper</p>
+    <slot />
+  </div>
+</div>
+
+<style>
+  .depth {
+    margin-top: 1.75rem;
+    border-left: 2px solid var(--line);
+    padding-left: clamp(1rem, 2.5vw, 1.5rem);
+  }
+  .depth-inner > * + * {
+    margin-top: 1em;
+  }
+  .depth-tag {
+    color: var(--smoke);
+    margin-bottom: 0.5rem;
+  }
+</style>

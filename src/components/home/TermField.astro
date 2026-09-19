@@ -1,0 +1,399 @@
+---
+// The field: a vocabulary of the work, floating in the dark behind the hero.
+// Press DISTILL and it settles into structure. Progressive enhancement —
+// without JS, or with reduced motion, the structured version simply stands.
+const CLUSTERS = [
+  {
+    name: "Retrieval",
+    note: "finding meaning",
+    terms: ["embeddings", "vectors", "chunking", "semantic search", "BM25", "HNSW", "reranking", "recall@k"],
+  },
+  {
+    name: "Inference",
+    note: "running models",
+    terms: ["tokens", "attention", "context windows", "latency", "caching"],
+  },
+  {
+    name: "Agents",
+    note: "acting on purpose",
+    terms: ["tool calling", "planning", "memory", "structured outputs"],
+  },
+  {
+    name: "Reliability",
+    note: "holding under load",
+    terms: ["queues", "retries", "backpressure", "indexes", "transactions"],
+  },
+  {
+    name: "Evaluation",
+    note: "knowing it works",
+    terms: ["groundedness", "nDCG", "MRR", "evals"],
+  },
+];
+---
+
+<div class="field" data-field>
+  <svg class="field-lines" data-lines aria-hidden="true"></svg>
+
+  <div class="field-rows wrap" data-target>
+    {
+      CLUSTERS.map((cluster, ci) => (
+        <div class="cluster">
+          <h3 class="cluster-name label label-ember">
+            {cluster.name}
+            <span class="cluster-note">{cluster.note}</span>
+          </h3>
+          <ul class="terms">
+            {cluster.terms.map((term, ti) => (
+              <li class="term" data-term data-cluster={ci} data-i={ti}>
+                <span class="term-inner">{term}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .field {
+    margin-top: 0;
+    padding-top: clamp(0.75rem, 2.5vh, 1.75rem);
+    z-index: 2;
+  }
+
+  .field-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.9s var(--ease);
+    animation: field-breathe 46s ease-in-out infinite alternate;
+  }
+  .field-lines.is-hidden {
+    opacity: 0;
+  }
+
+  .field-rows {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.5rem;
+  }
+
+  .cluster-name {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: 0.5rem;
+    margin-bottom: clamp(0.5rem, 1.2vh, 0.9rem);
+    transition: opacity 0.7s var(--ease);
+  }
+  .cluster-note {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    color: var(--smoke);
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  .terms {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.12rem, 0.5vh, 0.6rem);
+  }
+  .term {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    line-height: 1.4;
+    color: var(--ash);
+    white-space: nowrap;
+    width: max-content;
+    will-change: transform, opacity;
+  }
+  .term-inner {
+    display: inline-block;
+    animation: field-breathe 46s ease-in-out infinite alternate;
+  }
+
+  @keyframes field-breathe {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(7px, -9px, 0);
+    }
+  }
+
+  /* JS takes over: terms detach from the grid and float in the hero */
+  .field.is-js .term {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: transform 1.1s var(--ease), opacity 1.1s var(--ease);
+  }
+  .field.no-transition .term {
+    transition: none;
+  }
+  .field.is-scattered .cluster-name {
+    opacity: 0;
+  }
+
+  @media (max-width: 899px) {
+    .field-rows {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .field-lines,
+    .term-inner {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  const hero = document.querySelector<HTMLElement>("[data-hero]");
+  const field = document.querySelector<HTMLElement>("[data-field]");
+  const rows = document.querySelector<HTMLElement>("[data-target]");
+  const lines = document.querySelector<SVGSVGElement>("[data-lines]");
+  const button = document.querySelector<HTMLButtonElement>("[data-distill]");
+  const buttonLabel = document.querySelector<HTMLElement>("[data-distill-label]");
+  const stateEl = document.querySelector<HTMLElement>("[data-state]");
+  const caption = document.querySelector<HTMLElement>("[data-caption]");
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const desktop = () => window.matchMedia("(min-width: 900px)").matches;
+
+  if (hero && field && rows && lines && button && buttonLabel && stateEl && !reduce) {
+    const terms = Array.from(field.querySelectorAll<HTMLElement>(".term"));
+    let home: { x: number; y: number }[] = [];
+    let sizes: { w: number; h: number }[] = [];
+    let height = 0;
+    let distilled = true;
+    let inited = false;
+    let interacted = false;
+
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem("emretheus:field") === "seen";
+    } catch (e) {}
+
+    const setUI = (d: boolean) => {
+      distilled = d;
+      field.classList.toggle("is-scattered", !d);
+      lines.classList.toggle("is-hidden", d);
+      stateEl.textContent = d ? "Structured" : "Scattered";
+      stateEl.classList.toggle("is-distilled", d);
+      button.setAttribute("aria-pressed", String(d));
+      buttonLabel.textContent = d ? "Unfold" : "Distill";
+      if (caption) caption.textContent = d ? "The same thing, arranged" : "Everything at once";
+    };
+
+    const measure = () => {
+      field.classList.remove("is-js", "no-transition");
+      rows.style.height = "";
+      terms.forEach((t) => t.removeAttribute("style"));
+      /* Origin for absolute terms is the rows padding box. */
+      const o = rows.getBoundingClientRect();
+      home = terms.map((t) => {
+        const r = t.getBoundingClientRect();
+        return { x: r.left - o.left, y: r.top - o.top };
+      });
+      sizes = terms.map((t) => ({ w: t.offsetWidth, h: t.offsetHeight }));
+      height = o.height;
+    };
+
+    const drawLines = (points: { x: number; y: number }[]) => {
+      lines.innerHTML = "";
+      const W = hero.clientWidth;
+      const H = hero.clientHeight;
+      lines.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      const count = 14;
+      for (let i = 0; i < count; i++) {
+        const a = points[Math.floor(Math.random() * points.length)];
+        let b = points[Math.floor(Math.random() * points.length)];
+        if (b === a) b = points[(points.indexOf(a) + 1) % points.length];
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", String(a.x));
+        line.setAttribute("y1", String(a.y));
+        line.setAttribute("x2", String(b.x));
+        line.setAttribute("y2", String(b.y));
+        const ember = Math.random() < 0.22;
+        line.setAttribute("stroke", ember ? "rgba(255,106,43,0.22)" : "rgba(232,226,213,0.06)");
+        line.setAttribute("stroke-width", "1");
+        lines.appendChild(line);
+      }
+    };
+
+    const scatter = (animate: boolean) => {
+      const hr = hero.getBoundingClientRect();
+      const o = rows.getBoundingClientRect();
+      const foot = document.querySelector<HTMLElement>("[data-hero-foot]");
+      const minX = hr.left - o.left + 12;
+      const maxX = hr.right - o.left - 12;
+      const minY = hr.top - o.top + 74;
+      const footTop = foot ? foot.getBoundingClientRect().top - o.top : -20;
+      const maxY = Math.min(footTop - 28, -20);
+      const points: { x: number; y: number }[] = [];
+      const toHeroX = o.left - hr.left;
+      const toHeroY = o.top - hr.top;
+
+      /* keep drifting terms clear of the headline block */
+      const content = document.querySelector<HTMLElement>(".hero-grid");
+      let avoid: { l: number; t: number; r: number; b: number } | null = null;
+      if (content) {
+        const cr = content.getBoundingClientRect();
+        avoid = {
+          l: cr.left - o.left - 28,
+          t: cr.top - o.top - 24,
+          r: cr.right - o.left + 28,
+          b: cr.bottom - o.top + 24,
+        };
+      }
+
+      rows.style.height = `${height}px`;
+      field.classList.add("is-js");
+      if (!animate) field.classList.add("no-transition");
+
+      terms.forEach((t, i) => {
+        const { w, h } = sizes[i];
+        let x = minX;
+        let y = minY;
+        for (let k = 0; k < 24; k++) {
+          x = minX + Math.random() * Math.max(maxX - minX - w, 40);
+          y = minY + Math.random() * Math.max(maxY - minY - h, 40);
+          const clear =
+            !avoid ||
+            x + w < avoid.l ||
+            x > avoid.r ||
+            y + h < avoid.t ||
+            y > avoid.b;
+          if (clear) break;
+        }
+        const r = (Math.random() * 14 - 7).toFixed(2);
+        const opacity = (0.16 + Math.random() * 0.26).toFixed(2);
+        t.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
+        t.style.opacity = opacity;
+        points.push({ x: toHeroX + x + w / 2, y: toHeroY + y + h / 2 });
+      });
+
+      drawLines(points);
+
+      if (!animate) {
+        void field.offsetWidth;
+        field.classList.remove("no-transition");
+      }
+      setUI(false);
+    };
+
+    const distill = (animate = true) => {
+      const wasJs = field.classList.contains("is-js");
+      const snap = !wasJs || !animate;
+      rows.style.height = `${height}px`;
+      if (snap) field.classList.add("is-js", "no-transition");
+      terms.forEach((t, i) => {
+        t.style.transform = `translate(${home[i].x}px, ${home[i].y}px)`;
+        t.style.opacity = "1";
+      });
+      lines.classList.add("is-hidden");
+      if (snap) {
+        void field.offsetWidth;
+        field.classList.remove("no-transition");
+      }
+      setUI(true);
+    };
+
+    /* Re-measure and re-apply the current state without animating.
+       Needed after fonts load, on window load, and on resize. */
+    const reflow = () => {
+      if (!desktop()) {
+        if (inited) reset();
+        return;
+      }
+      if (!inited) {
+        init();
+        return;
+      }
+      const wasDistilled = distilled;
+      measure();
+      if (wasDistilled) {
+        distill(false);
+      } else {
+        scatter(false);
+      }
+    };
+
+    const init = () => {
+      if (!desktop()) return;
+      measure();
+      if (seen) {
+        // returning in this session: skip the noise, stay structured
+        button.hidden = false;
+        setUI(true);
+      } else {
+        scatter(false);
+        button.hidden = false;
+        window.setTimeout(() => {
+          if (!interacted && !distilled) {
+            interacted = true;
+            try {
+              sessionStorage.setItem("emretheus:field", "seen");
+            } catch (e) {}
+            distill();
+          }
+        }, 4200);
+      }
+      inited = true;
+    };
+
+    const reset = () => {
+      field.classList.remove("is-js", "no-transition", "is-scattered");
+      terms.forEach((t) => t.removeAttribute("style"));
+      rows.style.height = "";
+      lines.innerHTML = "";
+      button.hidden = true;
+      setUI(true);
+      inited = false;
+    };
+
+    button.addEventListener("click", () => {
+      interacted = true;
+      try {
+        sessionStorage.setItem("emretheus:field", "seen");
+      } catch (e) {}
+      if (distilled) {
+        measure();
+        scatter(true);
+      } else {
+        distill();
+      }
+    });
+
+    let resizeTimer: number | undefined;
+    window.addEventListener("resize", () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(reflow, 260);
+    });
+
+    /* Layout shifts when the webfonts arrive — re-measure so the distilled
+       positions match the final typography. */
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        if (inited) reflow();
+      });
+    }
+    window.addEventListener("load", () => {
+      if (inited) reflow();
+    });
+
+    init();
+  }
+</script>

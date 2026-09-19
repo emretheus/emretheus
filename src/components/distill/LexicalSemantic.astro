@@ -1,0 +1,158 @@
+---
+import { LEX_QUERIES, lexicalHtml, semanticHtml } from "../../lib/lexical";
+
+const initialQuery = LEX_QUERIES[0];
+---
+
+<div class="lx" data-lx>
+  <div class="lx-head">
+    <span class="label">Two ways to search the same five sentences</span>
+    <div class="lx-presets">
+      {
+        LEX_QUERIES.map((q, i) => (
+          <button
+            type="button"
+            class:list={["control", i === 0 && "is-active"]}
+            data-lx-query={q.q}
+          >
+            {q.label}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="lx-grid">
+    <div class="lx-col">
+      <p class="label lx-col-label">Lexical — word match</p>
+      <ol class="lx-rows" data-lx-lexical set:html={lexicalHtml(initialQuery.q)} />
+    </div>
+    <div class="lx-col">
+      <p class="label lx-col-label">Semantic — meaning match</p>
+      <ol class="lx-rows" data-lx-semantic set:html={semanticHtml(initialQuery.q)} />
+    </div>
+  </div>
+
+  <p class="lx-verdict" data-lx-verdict aria-live="polite">
+    {initialQuery.verdict}
+  </p>
+  <p class="lx-note label">
+    Semantic scores are precomputed for this demo — the contrast is the point.
+  </p>
+</div>
+
+<style is:global>
+  .lx {
+    background: var(--bg-2);
+  }
+  .lx-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem 1.15rem 0.5rem;
+  }
+  .lx-presets {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .lx-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .lx-col {
+    padding: 1rem;
+  }
+  .lx-col:first-child {
+    border-right: 1px solid var(--line);
+  }
+  .lx-col-label {
+    margin-bottom: 0.75rem;
+  }
+
+  .lx-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .lx-row {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding-bottom: 0.25rem;
+  }
+  .lx-id {
+    color: var(--smoke);
+    font-size: 0.66rem;
+  }
+  .lx-text {
+    font-size: 0.9rem;
+    color: var(--ash);
+    line-height: 1.5;
+  }
+  .lx-row.is-top .lx-text {
+    color: var(--bone);
+  }
+  .lx-count,
+  .lx-score {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--smoke);
+  }
+  .lx-row.is-top .lx-score {
+    color: var(--ember);
+  }
+  .lx-empty {
+    padding: 0.5rem 0;
+  }
+
+  .lx-verdict {
+    padding: 1rem 1.15rem 0.35rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 400;
+    color: var(--bone);
+    line-height: 1.4;
+  }
+  .lx-note {
+    padding: 0 1.15rem 1rem;
+    font-size: 0.6rem;
+  }
+
+  @media (max-width: 680px) {
+    .lx-grid {
+      grid-template-columns: 1fr;
+    }
+    .lx-col:first-child {
+      border-right: none;
+    }
+  }
+</style>
+
+<script>
+  import { LEX_QUERIES, lexicalHtml, semanticHtml } from "../../lib/lexical";
+
+  const root = document.querySelector<HTMLElement>("[data-lx]");
+  if (root) {
+    const lexical = root.querySelector<HTMLElement>("[data-lx-lexical]")!;
+    const semantic = root.querySelector<HTMLElement>("[data-lx-semantic]")!;
+    const verdict = root.querySelector<HTMLElement>("[data-lx-verdict]")!;
+
+    root.querySelectorAll<HTMLButtonElement>("[data-lx-query]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const q = btn.dataset.lxQuery || "puppy";
+        const query = LEX_QUERIES.find((x) => x.q === q);
+        lexical.innerHTML = lexicalHtml(q);
+        semantic.innerHTML = semanticHtml(q);
+        verdict.textContent = query?.verdict ?? "";
+        root
+          .querySelectorAll("[data-lx-query]")
+          .forEach((b) => b.classList.toggle("is-active", b === btn));
+      });
+    });
+  }
+</script>

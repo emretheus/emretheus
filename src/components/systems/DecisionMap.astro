@@ -1,0 +1,173 @@
+---
+interface Stage {
+  sys: string;
+  plain: string;
+  note?: string;
+  /** id of the decision this stage carries, e.g. "D2" */
+  decision?: string;
+}
+interface Props {
+  stages: Stage[];
+  caption?: string;
+}
+const { stages, caption } = Astro.props;
+---
+
+<div class="dm" data-dm>
+  <div class="dm-head">
+    <span class="label dm-mode" data-dm-mode>System view</span>
+    <button class="control" type="button" data-dm-toggle aria-pressed="false">
+      <span data-dm-toggle-label>Distill</span>
+      <svg viewBox="0 0 12 12" fill="none" aria-hidden="true">
+        <path
+          d="M2 4.5 6 8.5 10 4.5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
+    </button>
+  </div>
+
+  <ol class="dm-flow">
+    {
+      stages.map((s, i) => (
+        <li
+          class:list={["dm-stage", s.decision && "has-decision"]}
+          data-decision={s.decision}
+          tabindex={s.decision ? 0 : undefined}
+        >
+          <span class="dm-num label">{String(i + 1).padStart(2, "0")}</span>
+          <span class="dm-labels">
+            <span class="dm-label dm-sys">{s.sys}</span>
+            <span class="dm-label dm-plain">{s.plain}</span>
+          </span>
+          {s.note && <span class="dm-note label">{s.note}</span>}
+          {s.decision && <span class="dm-badge label">{s.decision}</span>}
+        </li>
+      ))
+    }
+  </ol>
+
+  {caption && <p class="dm-cap label">{caption}</p>}
+</div>
+
+<style>
+  .dm {
+    background: var(--bg-2);
+  }
+  .dm-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem 0.5rem;
+  }
+  .dm-mode {
+    color: var(--ash);
+  }
+
+  .dm-flow {
+    padding: 0.5rem 0 1rem;
+  }
+  .dm-stage {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.85rem 1.15rem;
+    transition: background 0.3s var(--ease);
+  }
+  .dm-stage.has-decision {
+    cursor: default;
+  }
+  .dm-stage.is-lit {
+    background: var(--heat);
+  }
+  .dm-num {
+    font-size: 0.66rem;
+  }
+  .dm-labels {
+    display: inline-grid;
+  }
+  .dm-sys {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bone);
+  }
+  .dm-plain {
+    display: none;
+    font-size: 0.98rem;
+    color: var(--bone);
+  }
+  .dm-note {
+    font-size: 0.62rem;
+    white-space: nowrap;
+  }
+  .dm-badge {
+    color: var(--ember);
+    font-size: 0.66rem;
+    border: 1px solid var(--ember-dim);
+    border-radius: var(--radius);
+    padding: 0.15rem 0.4rem;
+  }
+
+  /* distilled view swaps technical labels for plain ones */
+  .dm.is-distilled .dm-sys {
+    display: none;
+  }
+  .dm.is-distilled .dm-plain {
+    display: inline;
+  }
+
+  .dm-cap {
+    padding: 0.5rem 1.15rem 1rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 720px) {
+    .dm-stage {
+      grid-template-columns: 2rem minmax(0, 1fr) auto;
+    }
+    .dm-note {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const dm = document.querySelector<HTMLElement>("[data-dm]");
+  if (dm) {
+    const toggle = dm.querySelector<HTMLButtonElement>("[data-dm-toggle]");
+    const label = dm.querySelector<HTMLElement>("[data-dm-toggle-label]");
+    const mode = dm.querySelector<HTMLElement>("[data-dm-mode]");
+    let distilled = false;
+
+    toggle?.addEventListener("click", () => {
+      distilled = !distilled;
+      dm.classList.toggle("is-distilled", distilled);
+      toggle.setAttribute("aria-pressed", String(distilled));
+      if (label) label.textContent = distilled ? "Unfold" : "Distill";
+      if (mode) mode.textContent = distilled ? "Distilled view" : "System view";
+    });
+
+    const mark = (id: string, on: boolean) => {
+      document
+        .querySelectorAll<HTMLElement>(`[data-decision="${id}"]`)
+        .forEach((n) => n.classList.toggle("is-lit", on));
+    };
+
+    document.querySelectorAll<HTMLElement>("[data-decision]").forEach((el) => {
+      const id = el.dataset.decision || "";
+      const on = () => mark(id, true);
+      const off = () => mark(id, false);
+      el.addEventListener("mouseenter", on);
+      el.addEventListener("mouseleave", off);
+      el.addEventListener("focus", on);
+      el.addEventListener("blur", off);
+    });
+  }
+</script>

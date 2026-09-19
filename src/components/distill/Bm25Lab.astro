@@ -1,0 +1,559 @@
+---
+import { computeBm25, highlight } from "../../lib/bm25";
+
+const initial = computeBm25("vector database", 1.2, 0.75);
+const maxScore = initial.rows[0]?.score ?? 1;
+const top = initial.rows[0];
+---
+
+<div class="bm" data-bm>
+  <div class="bm-head">
+    <span class="label">BM25 lab · 5 documents</span>
+    <div class="bm-presets" data-bm-presets>
+      <span class="label">query</span>
+      <button type="button" class="control is-active" data-bm-query="vector database">“vector database”</button>
+      <button type="button" class="control" data-bm-query="database">“database”</button>
+      <button type="button" class="control" data-bm-query="vector">“vector”</button>
+      <button type="button" class="control" data-bm-query="indexes">“indexes”</button>
+    </div>
+  </div>
+
+  <div class="bm-controls">
+    <label class="bm-slider">
+      <span class="label">k₁ <em data-bm-k1-val>1.20</em></span>
+      <input type="range" min="0" max="3" step="0.05" value="1.2" data-bm-k1 />
+      <span class="label bm-hint">saturation</span>
+    </label>
+    <label class="bm-slider">
+      <span class="label">b <em data-bm-b-val>0.75</em></span>
+      <input type="range" min="0" max="1" step="0.05" value="0.75" data-bm-b />
+      <span class="label bm-hint">length correction</span>
+    </label>
+  </div>
+
+  <div class="bm-body">
+    <div class="bm-results">
+      <p class="label bm-col-label">Ranked documents</p>
+      <ol class="bm-rows" data-bm-rows>
+        {
+          initial.rows.map((r, i) => (
+            <li class="bm-row" class:list={{ "is-top": i === 0 }}>
+              <div class="bm-row-top">
+                <span class="bm-rank label">{String(i + 1).padStart(2, "0")}</span>
+                <span class="bm-docid label">{r.doc.id}</span>
+                <span class="bm-len label">
+                  len {r.len} · norm {r.norm.toFixed(2)}
+                </span>
+                <span class="bm-score">{r.score.toFixed(2)}</span>
+              </div>
+              <p class="bm-text" set:html={highlight(r.doc.text, initial.qTerms)} />
+              <span class="bm-bar">
+                <span style={`width:${Math.max(0, (r.score / maxScore) * 100).toFixed(1)}%`} />
+              </span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <div class="bm-side">
+      <p class="label bm-col-label">Query terms</p>
+      <table class="bm-terms" data-bm-terms>
+        <thead>
+          <tr>
+            <th>term</th><th>df</th><th>idf</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            initial.qTerms.map((t) => (
+              <tr>
+                <td>{t}</td>
+                <td>{initial.df[t]}</td>
+                <td>{initial.rows[0]?.terms.find((x) => x.term === t)?.idf.toFixed(2)}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+
+      <p class="label bm-col-label">Saturation — the tf part, for the top document</p>
+      <svg class="bm-curve" viewBox="0 0 240 90" data-bm-curve aria-hidden="true"></svg>
+    </div>
+  </div>
+
+  <div class="bm-formula" data-bm-formula>
+    <span class="f-mono">score(D, Q) =</span>
+    <span class="f-sum f-mono">Σ</span>
+    <span class="f-part" data-part="idf">IDF(qᵢ)</span>
+    <span class="f-mono">·</span>
+    <span class="f-frac">
+      <span class="f-num">
+        <span class="f-part" data-part="tf">f(qᵢ, D) · (k₁ + 1)</span>
+      </span>
+      <span class="f-den">
+        f(qᵢ, D) + k₁ ·
+        <span class="f-part" data-part="norm">(1 − b + b · |D| / avgdl)</span>
+      </span>
+    </span>
+  </div>
+
+  <div class="bm-cards">
+    <button type="button" class="bm-card" data-bm-card="tf">
+      <span class="bm-card-key label" style="color: var(--ember)">term frequency</span>
+      <span class="bm-card-line">
+        How often the word appears in the document. k₁ controls how quickly
+        extra repeats stop mattering.
+      </span>
+    </button>
+    <button type="button" class="bm-card" data-bm-card="idf">
+      <span class="bm-card-key label" style="color: var(--amber)">rarity (idf)</span>
+      <span class="bm-card-line">
+        How rare the word is across all documents. A word in every document
+        tells us little; a word in one document decides everything.
+      </span>
+    </button>
+    <button type="button" class="bm-card" data-bm-card="norm">
+      <span class="bm-card-key label">length correction</span>
+      <span class="bm-card-line">
+        How long the document is. Long documents repeat words by accident, so
+        they are discounted — b controls how strongly.
+      </span>
+    </button>
+  </div>
+
+  <div class="bm-breakdown">
+    <p class="label">Score breakdown — <span data-bm-top-id>{top?.doc.id}</span></p>
+    <table class="bm-table" data-bm-breakdown>
+      <thead>
+        <tr>
+          <th>term</th><th>tf</th><th>idf</th><th>tf part</th><th>contribution</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          top?.terms.map((t) => (
+            <tr>
+              <td>{t.term}</td>
+              <td>{t.tf}</td>
+              <td>{t.idf.toFixed(2)}</td>
+              <td>{t.part.toFixed(2)}</td>
+              <td>{t.contribution.toFixed(2)}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style is:global>
+  .bm {
+    background: var(--bg-2);
+    font-family: var(--font-sans);
+  }
+  .bm-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem 1.15rem 0.5rem;
+  }
+  .bm-presets {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .bm-controls {
+    display: flex;
+    gap: clamp(1.5rem, 5vw, 4rem);
+    padding: 0.6rem 1.15rem 1rem;
+    flex-wrap: wrap;
+  }
+  .bm-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .bm-slider .label {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: baseline;
+  }
+  .bm-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .bm-slider input[type="range"] {
+    width: clamp(8rem, 20vw, 14rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+  .bm-hint {
+    font-size: 0.6rem;
+  }
+
+  .bm-body {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+  }
+  .bm-results {
+    border-right: 1px solid var(--line);
+    padding: 1.15rem;
+  }
+  .bm-side {
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .bm-col-label {
+    margin-bottom: 0.75rem;
+  }
+
+  .bm-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+  .bm-row {
+    padding-bottom: 0;
+  }
+  .bm-row-top {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .bm-rank {
+    font-size: 0.66rem;
+  }
+  .bm-docid {
+    color: var(--bone);
+  }
+  .bm-len {
+    font-size: 0.6rem;
+    margin-left: auto;
+  }
+  .bm-score {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ash);
+  }
+  .bm-row.is-top .bm-score {
+    color: var(--ember);
+  }
+  .bm-text {
+    margin-top: 0.4rem;
+    font-size: 0.92rem;
+    color: var(--ash);
+    line-height: 1.55;
+  }
+  .bm-text mark {
+    background: var(--heat);
+    color: var(--bone);
+    padding: 0 0.15em;
+  }
+  .bm-bar {
+    display: block;
+    height: 2px;
+    background: var(--line);
+    margin-top: 0.6rem;
+    position: relative;
+  }
+  .bm-bar span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--smoke);
+    transition: width 0.4s var(--ease);
+  }
+  .bm-row.is-top .bm-bar span {
+    background: var(--ember);
+  }
+
+  .bm-terms,
+  .bm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .bm-terms th,
+  .bm-table th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--smoke);
+    padding: 0.4rem 0.5rem 0.4rem 0;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .bm-terms td,
+  .bm-table td {
+    padding: 0.4rem 0.5rem 0.4rem 0;
+    color: var(--ash);
+  }
+  .bm-table td:first-child {
+    color: var(--bone);
+  }
+
+  .bm-curve {
+    width: 100%;
+    height: auto;
+    background: var(--bg);
+  }
+
+  .bm-formula {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1.5rem 1.15rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--ash);
+  }
+  .f-part {
+    padding: 0.15rem 0.35rem;
+    border-radius: var(--radius);
+    transition: background 0.3s var(--ease), outline-color 0.3s var(--ease);
+    outline: 1px solid transparent;
+  }
+  [data-part="tf"],
+  .f-part[data-part="tf"] {
+    color: var(--ember);
+  }
+  .f-part[data-part="idf"] {
+    color: var(--amber);
+  }
+  .f-part[data-part="norm"] {
+    color: var(--bone);
+  }
+  .f-part.is-lit {
+    background: var(--heat);
+    outline-color: var(--ember-dim);
+  }
+  .f-frac {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding-inline: 0.35rem;
+  }
+  .f-num {
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .f-den {
+    padding-top: 0.1rem;
+  }
+
+  .bm-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  .bm-card {
+    text-align: left;
+    padding: 1rem;
+    transition: background 0.3s var(--ease);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .bm-card:hover,
+  .bm-card:focus-visible {
+    background: var(--bg-3);
+  }
+  .bm-card-key {
+    font-size: 0.62rem;
+  }
+  .bm-card-line {
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--ash);
+  }
+
+  .bm-breakdown {
+    padding: 1.15rem;
+  }
+  .bm-breakdown .label {
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  @media (max-width: 780px) {
+    .bm-body {
+      grid-template-columns: 1fr;
+    }
+    .bm-results {
+      border-right: none;
+    }
+    .bm-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  import { computeBm25, highlight } from "../../lib/bm25";
+
+  const root = document.querySelector<HTMLElement>("[data-bm]");
+  if (root) {
+    let query = "vector database";
+    let k1 = 1.2;
+    let b = 0.75;
+
+    const rowsEl = root.querySelector<HTMLElement>("[data-bm-rows]")!;
+    const termsEl = root.querySelector<HTMLElement>("[data-bm-terms]")!;
+    const breakdownEl = root.querySelector<HTMLElement>("[data-bm-breakdown]")!;
+    const topIdEl = root.querySelector<HTMLElement>("[data-bm-top-id]")!;
+    const curveEl = root.querySelector<SVGSVGElement>("[data-bm-curve]")!;
+    const k1Input = root.querySelector<HTMLInputElement>("[data-bm-k1]")!;
+    const bInput = root.querySelector<HTMLInputElement>("[data-bm-b]")!;
+    const k1Val = root.querySelector<HTMLElement>("[data-bm-k1-val]")!;
+    const bVal = root.querySelector<HTMLElement>("[data-bm-b-val]")!;
+    const NS = "http://www.w3.org/2000/svg";
+
+    const svgEl = (name: string, attrs: Record<string, string | number>) => {
+      const n = document.createElementNS(NS, name);
+      for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+      return n;
+    };
+
+    const renderCurve = (result: ReturnType<typeof computeBm25>) => {
+      const top = result.rows[0];
+      curveEl.innerHTML = "";
+      const W = 240;
+      const H = 90;
+      const pad = { l: 26, r: 10, t: 10, b: 18 };
+      const maxTf = 8;
+      const sample = (tf: number) =>
+        (tf * (k1 + 1)) / (tf + k1 * (top?.norm ?? 1));
+      const yMax = Math.max(sample(maxTf), 1.2);
+
+      const ax = svgEl("line", {
+        x1: pad.l, y1: H - pad.b, x2: W - pad.r, y2: H - pad.b,
+        stroke: "rgba(232,226,213,0.15)",
+      });
+      const ay = svgEl("line", {
+        x1: pad.l, y1: pad.t, x2: pad.l, y2: H - pad.b,
+        stroke: "rgba(232,226,213,0.15)",
+      });
+      curveEl.append(ax, ay);
+
+      const px = (tf: number) => pad.l + (tf / maxTf) * (W - pad.l - pad.r);
+      const py = (v: number) => H - pad.b - (v / yMax) * (H - pad.t - pad.b);
+
+      let d = "";
+      for (let tf = 0; tf <= maxTf; tf += 0.25) {
+        const x = px(tf);
+        const y = py(sample(tf));
+        d += `${tf === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)} `;
+      }
+      curveEl.appendChild(
+        svgEl("path", { d, fill: "none", stroke: "var(--ember)", "stroke-width": 1.5 }),
+      );
+
+      for (const t of top?.terms ?? []) {
+        if (t.tf === 0) continue;
+        curveEl.appendChild(
+          svgEl("circle", {
+            cx: px(Math.min(t.tf, maxTf)),
+            cy: py(t.part),
+            r: 3,
+            fill: "var(--amber)",
+          }),
+        );
+      }
+
+      const xl = svgEl("text", {
+        x: W - pad.r, y: H - 4, fill: "var(--smoke)", "font-size": 9,
+        "font-family": "var(--font-mono)", "text-anchor": "end",
+      });
+      xl.textContent = "tf →";
+      const yl = svgEl("text", {
+        x: 0, y: 10, fill: "var(--smoke)", "font-size": 9,
+        "font-family": "var(--font-mono)",
+      });
+      yl.textContent = "part";
+      curveEl.append(xl, yl);
+    };
+
+    const render = () => {
+      const result = computeBm25(query, k1, b);
+      const max = result.rows[0]?.score || 1;
+
+      rowsEl.innerHTML = result.rows
+        .map((r, i) => {
+          const pct = Math.max(0, (r.score / max) * 100).toFixed(1);
+          return `<li class="bm-row${i === 0 ? " is-top" : ""}">
+            <div class="bm-row-top">
+              <span class="bm-rank label">${String(i + 1).padStart(2, "0")}</span>
+              <span class="bm-docid label">${r.doc.id}</span>
+              <span class="bm-len label">len ${r.len} · norm ${r.norm.toFixed(2)}</span>
+              <span class="bm-score">${r.score.toFixed(2)}</span>
+            </div>
+            <p class="bm-text">${highlight(r.doc.text, result.qTerms)}</p>
+            <span class="bm-bar"><span style="width:${pct}%"></span></span>
+          </li>`;
+        })
+        .join("");
+
+      termsEl.querySelector("tbody")!.innerHTML = result.qTerms
+        .map((t) => {
+          const idf = result.rows[0]?.terms.find((x) => x.term === t)?.idf ?? 0;
+          return `<tr><td>${t}</td><td>${result.df[t]}</td><td>${idf.toFixed(2)}</td></tr>`;
+        })
+        .join("");
+
+      const top = result.rows[0];
+      topIdEl.textContent = top?.doc.id ?? "";
+      breakdownEl.querySelector("tbody")!.innerHTML = (top?.terms ?? [])
+        .map(
+          (t) =>
+            `<tr><td>${t.term}</td><td>${t.tf}</td><td>${t.idf.toFixed(2)}</td><td>${t.part.toFixed(2)}</td><td>${t.contribution.toFixed(2)}</td></tr>`,
+        )
+        .join("");
+
+      renderCurve(result);
+    };
+
+    root.querySelectorAll<HTMLButtonElement>("[data-bm-query]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        query = btn.dataset.bmQuery || "vector database";
+        root
+          .querySelectorAll("[data-bm-query]")
+          .forEach((b2) => b2.classList.toggle("is-active", b2 === btn));
+        render();
+      });
+    });
+
+    k1Input.addEventListener("input", () => {
+      k1 = Number(k1Input.value);
+      k1Val.textContent = k1.toFixed(2);
+      render();
+    });
+    bInput.addEventListener("input", () => {
+      b = Number(bInput.value);
+      bVal.textContent = b.toFixed(2);
+      render();
+    });
+
+    // formula ↔ card highlighting
+    root.querySelectorAll<HTMLElement>("[data-bm-card]").forEach((card) => {
+      const key = card.dataset.bmCard;
+      const part = root.querySelector<HTMLElement>(`[data-part="${key}"]`);
+      const lit = (on: boolean) => part?.classList.toggle("is-lit", on);
+      card.addEventListener("mouseenter", () => lit(true));
+      card.addEventListener("mouseleave", () => lit(false));
+      card.addEventListener("focus", () => lit(true));
+      card.addEventListener("blur", () => lit(false));
+    });
+
+    render();
+  }
+</script>

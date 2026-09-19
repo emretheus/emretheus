@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from "astro/config";
+import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ export default defineConfig({
   base: BASE,
   trailingSlash: "ignore",
   integrations: [
+    mdx(),
     sitemap({
       // Keep a single canonical entry per page (drop the no-trailing-slash dupe).
       filter: (page) => page.endsWith("/"),

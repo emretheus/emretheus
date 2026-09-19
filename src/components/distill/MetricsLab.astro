@@ -1,0 +1,261 @@
+---
+// Metrics lab: a fixed ranked list and a golden set you can edit.
+// Recall@K, MRR and nDCG update as you change grades and K.
+---
+
+<div class="ml" data-ml>
+  <div class="ml-head">
+    <span class="label">Metrics lab · golden set of 6 results</span>
+    <button class="control" type="button" data-ml-reset>
+      <span>Reset grades</span>
+    </button>
+  </div>
+
+  <div class="ml-bar">
+    <label class="ml-slider">
+      <span class="label">K <em data-ml-k-val>3</em></span>
+      <input type="range" min="1" max="6" step="1" value="3" data-ml-k />
+    </label>
+    <p class="label ml-hint">click a grade: none → useful → answers it</p>
+  </div>
+
+  <ol class="ml-list" data-ml-list></ol>
+
+  <div class="ml-metrics">
+    <div class="ml-metric">
+      <span class="label ml-metric-name">Recall@K</span>
+      <span class="ml-metric-value" data-ml-recall>—</span>
+      <span class="ml-metric-line label" data-ml-recall-line></span>
+      <span class="ml-metric-q">Did you find it?</span>
+    </div>
+    <div class="ml-metric">
+      <span class="label ml-metric-name">MRR</span>
+      <span class="ml-metric-value" data-ml-mrr>—</span>
+      <span class="ml-metric-line label" data-ml-mrr-line></span>
+      <span class="ml-metric-q">How high was the first hit?</span>
+    </div>
+    <div class="ml-metric">
+      <span class="label ml-metric-name">nDCG@K</span>
+      <span class="ml-metric-value" data-ml-ndcg>—</span>
+      <span class="ml-metric-line label" data-ml-ndcg-line></span>
+      <span class="ml-metric-q">How well was everything ordered?</span>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .ml {
+    background: var(--bg-2);
+  }
+  .ml-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .ml-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0.35rem 1.15rem 0.9rem;
+  }
+  .ml-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .ml-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .ml-slider input[type="range"] {
+    width: clamp(7rem, 16vw, 11rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+  .ml-hint {
+    font-size: 0.6rem;
+  }
+
+  .ml-list {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0 1.15rem;
+  }
+  .ml-row {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.55rem 0.5rem;
+    transition: background 0.3s var(--ease);
+  }
+  .ml-row.is-in-rank {
+    background: var(--bg-3);
+  }
+  .ml-rank {
+    font-size: 0.66rem;
+  }
+  .ml-name {
+    font-size: 0.95rem;
+    color: var(--ash);
+  }
+  .ml-grade {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    color: var(--smoke);
+    transition: color 0.25s var(--ease), background 0.25s var(--ease);
+  }
+  .ml-grade:hover {
+    color: var(--bone);
+  }
+  .ml-grade[data-g="1"] {
+    color: var(--ash);
+  }
+  .ml-grade[data-g="2"] {
+    color: var(--ember);
+    background: var(--heat);
+  }
+
+  .ml-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem 1.15rem 1.15rem;
+  }
+  .ml-metric {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+  }
+  .ml-metric-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    color: var(--bone);
+  }
+  .ml-metric-line {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.6;
+  }
+  .ml-metric-q {
+    color: var(--ash);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 760px) {
+    .ml-metrics {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+  }
+</style>
+
+<script>
+  interface Result {
+    name: string;
+    grade: number;
+  }
+
+  const INITIAL: Result[] = [
+    { name: "Service level targets explained", grade: 2 },
+    { name: "Billing cycles and invoice dates", grade: 0 },
+    { name: "Service credits for missed targets", grade: 1 },
+    { name: "Termination and notice periods", grade: 1 },
+    { name: "Support hours and escalation", grade: 0 },
+    { name: "Data processing addendum", grade: 0 },
+  ];
+
+  const LABELS = ["not relevant", "useful", "answers it"];
+
+  const root = document.querySelector<HTMLElement>("[data-ml]");
+  if (root) {
+    const list = root.querySelector<HTMLElement>("[data-ml-list]")!;
+    const kInput = root.querySelector<HTMLInputElement>("[data-ml-k]")!;
+    const kVal = root.querySelector<HTMLElement>("[data-ml-k-val]")!;
+    const reset = root.querySelector<HTMLButtonElement>("[data-ml-reset]")!;
+    const out = {
+      recall: root.querySelector<HTMLElement>("[data-ml-recall]")!,
+      recallLine: root.querySelector<HTMLElement>("[data-ml-recall-line]")!,
+      mrr: root.querySelector<HTMLElement>("[data-ml-mrr]")!,
+      mrrLine: root.querySelector<HTMLElement>("[data-ml-mrr-line]")!,
+      ndcg: root.querySelector<HTMLElement>("[data-ml-ndcg]")!,
+      ndcgLine: root.querySelector<HTMLElement>("[data-ml-ndcg-line]")!,
+    };
+
+    let results = INITIAL.map((r) => ({ ...r }));
+
+    const gain = (g: number) => Math.pow(2, g) - 1;
+    const discount = (position: number) => Math.log2(position + 1);
+
+    const render = () => {
+      const K = Number(kInput.value);
+      kVal.textContent = String(K);
+
+      list.innerHTML = results
+        .map(
+          (r, i) => `
+        <li class="ml-row${i < K ? " is-in-rank" : ""}">
+          <span class="ml-rank label">${String(i + 1).padStart(2, "0")}</span>
+          <span class="ml-name">${r.name}</span>
+          <button class="ml-grade" type="button" data-ml-grade="${i}" data-g="${r.grade}"
+            aria-label="Result ${i + 1} relevance: ${LABELS[r.grade]}. Click to change.">
+            ${LABELS[r.grade]}
+          </button>
+        </li>`,
+        )
+        .join("");
+
+      const totalRelevant = results.filter((r) => r.grade > 0).length;
+      const found = results.slice(0, K).filter((r) => r.grade > 0).length;
+      const recall = totalRelevant === 0 ? 0 : found / totalRelevant;
+
+      const firstRel = results.findIndex((r) => r.grade > 0);
+      const mrr =
+        firstRel === -1 || firstRel >= K ? (firstRel === -1 ? 0 : 0) : 1 / (firstRel + 1);
+
+      let dcg = 0;
+      results.slice(0, K).forEach((r, i) => {
+        dcg += gain(r.grade) / discount(i + 2);
+      });
+      const ideal = [...results].sort((a, b) => b.grade - a.grade).slice(0, K);
+      let idcg = 0;
+      ideal.forEach((r, i) => {
+        idcg += gain(r.grade) / discount(i + 2);
+      });
+      const ndcg = idcg === 0 ? 0 : dcg / idcg;
+
+      out.recall.textContent = recall.toFixed(2);
+      out.recallLine.textContent = `${found} of ${totalRelevant} relevant results inside the first ${K}`;
+      out.mrr.textContent = mrr.toFixed(2);
+      out.mrrLine.textContent =
+        firstRel === -1
+          ? "no relevant result in the list"
+          : `first relevant result at rank ${firstRel + 1} → 1/${firstRel + 1}`;
+      out.ndcg.textContent = ndcg.toFixed(2);
+      out.ndcgLine.textContent = `DCG ${dcg.toFixed(2)} ÷ ideal DCG ${idcg.toFixed(2)}`;
+
+      list.querySelectorAll<HTMLButtonElement>("[data-ml-grade]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = Number(btn.dataset.mlGrade);
+          results[i].grade = (results[i].grade + 1) % 3;
+          render();
+        });
+      });
+    };
+
+    kInput.addEventListener("input", render);
+    reset.addEventListener("click", () => {
+      results = INITIAL.map((r) => ({ ...r }));
+      render();
+    });
+    render();
+  }
+</script>

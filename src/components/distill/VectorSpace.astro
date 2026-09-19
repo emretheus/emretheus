@@ -1,0 +1,405 @@
+---
+// A draggable query vector over a 2D meaning-space. Live cosine similarity.
+// Keyboard accessible: focus the ember point and use arrow keys; presets are
+// real buttons. No dependencies, ~4 KB of JS.
+---
+
+<div class="vs" data-vs>
+  <div class="vs-head">
+    <span class="label">Vector playground</span>
+    <div class="vs-presets">
+      <span class="label">try</span>
+      <button type="button" class="control" data-preset="dog">“dog”</button>
+      <button type="button" class="control" data-preset="car">“car”</button>
+      <button type="button" class="control" data-preset="neither">“unrelated”</button>
+    </div>
+  </div>
+
+  <div class="vs-grid">
+    <div class="vs-stage">
+      <svg viewBox="0 0 520 400" class="vs-svg" data-svg role="img" aria-label="Two-dimensional vector space with three document vectors and a draggable query vector">
+        <g class="grid" data-grid></g>
+        <g data-arrows></g>
+        <g data-query></g>
+        <g data-arc></g>
+      </svg>
+    </div>
+
+    <div class="vs-panel">
+      <p class="label">Similarity to your query</p>
+      <ul class="vs-rank" data-rank></ul>
+      <div class="vs-calc" data-calc aria-live="polite"></div>
+      <p class="vs-hint label">
+        Drag the ember point — or focus it and use arrow keys.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .vs {
+    background: var(--bg-2);
+  }
+  .vs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 1rem 1.15rem 0.5rem;
+  }
+  .vs-presets {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .vs-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+  }
+  .vs-stage {
+    border-right: 1px solid var(--line);
+  }
+  .vs-svg {
+    width: 100%;
+    height: auto;
+    touch-action: none;
+  }
+
+  .vs-panel {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .vs-rank {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .vs-row {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr 3.4rem;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .vs-row-name {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ash);
+  }
+  .vs-row.is-best .vs-row-name {
+    color: var(--ember);
+  }
+  .vs-bar {
+    height: 3px;
+    background: var(--line);
+    position: relative;
+  }
+  .vs-bar span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--smoke);
+    transition: width 0.4s var(--ease);
+  }
+  .vs-row.is-best .vs-bar span {
+    background: var(--ember);
+  }
+  .vs-val {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--smoke);
+    text-align: right;
+  }
+  .vs-row.is-best .vs-val {
+    color: var(--bone);
+  }
+
+  .vs-calc {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.7;
+    color: var(--smoke);
+    margin-top: 0.5rem;
+    word-break: break-word;
+  }
+  .vs-calc strong {
+    color: var(--ash);
+    font-weight: 400;
+  }
+
+  .vs-hint {
+    margin-top: auto;
+    font-size: 0.62rem;
+  }
+
+  @media (max-width: 720px) {
+    .vs-grid {
+      grid-template-columns: 1fr;
+    }
+    .vs-stage {
+      border-right: none;
+    }
+  }
+</style>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-vs]");
+  if (root) {
+    type Vec = { x: number; y: number };
+    const DOCS: { id: string; label: string; v: Vec; lx: number; ly: number }[] = [
+      { id: "cat", label: "cat", v: { x: 0.8, y: 0.7 }, lx: 10, ly: -12 },
+      { id: "kitten", label: "kitten", v: { x: 0.75, y: 0.72 }, lx: 10, ly: 20 },
+      { id: "car", label: "car", v: { x: -0.4, y: 0.1 }, lx: 10, ly: -10 },
+    ];
+    const PRESETS: Record<string, Vec> = {
+      dog: { x: 0.72, y: 0.64 },
+      car: { x: -0.42, y: 0.16 },
+      neither: { x: 0.05, y: 0.95 },
+    };
+
+    const svg = root.querySelector<SVGSVGElement>("[data-svg]")!;
+    const arrows = root.querySelector<SVGGElement>("[data-arrows]")!;
+    const queryG = root.querySelector<SVGGElement>("[data-query]")!;
+    const arcG = root.querySelector<SVGGElement>("[data-arc]")!;
+    const gridG = root.querySelector<SVGGElement>("[data-grid]")!;
+    const rankEl = root.querySelector<HTMLElement>("[data-rank]")!;
+    const calcEl = root.querySelector<HTMLElement>("[data-calc]")!;
+
+    const W = 520;
+    const H = 400;
+    const OX = 260;
+    const OY = 200;
+    const S = 150;
+
+    const toX = (x: number) => OX + x * S;
+    const toY = (y: number) => OY - y * S;
+
+    const cos = (a: Vec, b: Vec) =>
+      (a.x * b.x + a.y * b.y) /
+      (Math.hypot(a.x, a.y) * Math.hypot(b.x, b.y));
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    const el = (name: string, attrs: Record<string, string | number>) => {
+      const node = document.createElementNS(svgNS, name);
+      for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+      return node;
+    };
+
+    // static grid
+    const gridAttrs = { stroke: "rgba(232,226,213,0.08)", "stroke-width": 1 };
+    gridG.appendChild(el("line", { x1: 30, y1: OY, x2: W - 30, y2: OY, ...gridAttrs }));
+    gridG.appendChild(el("line", { x1: OX, y1: 30, x2: OX, y2: H - 30, ...gridAttrs }));
+    for (const t of [-1, -0.5, 0.5, 1]) {
+      gridG.appendChild(
+        el("line", { x1: toX(t), y1: OY - 5, x2: toX(t), y2: OY + 5, ...gridAttrs }),
+      );
+      gridG.appendChild(
+        el("line", { x1: OX - 5, y1: toY(t), x2: OX + 5, y2: toY(t), ...gridAttrs }),
+      );
+      const lx = el("text", {
+        x: toX(t),
+        y: OY + 20,
+        fill: "var(--smoke)",
+        "font-size": 10,
+        "font-family": "var(--font-mono)",
+        "text-anchor": "middle",
+      });
+      lx.textContent = String(t);
+      gridG.appendChild(lx);
+      const ly = el("text", {
+        x: OX - 12,
+        y: toY(t) + 4,
+        fill: "var(--smoke)",
+        "font-size": 10,
+        "font-family": "var(--font-mono)",
+        "text-anchor": "end",
+      });
+      ly.textContent = String(t);
+      gridG.appendChild(ly);
+    }
+
+    // document arrows
+    const docNodes = DOCS.map((d) => {
+      const g = el("g", {});
+      const line = el("line", {
+        x1: OX,
+        y1: OY,
+        x2: toX(d.v.x),
+        y2: toY(d.v.y),
+        stroke: "rgba(232,226,213,0.45)",
+        "stroke-width": 1.5,
+      });
+      const dot = el("circle", {
+        cx: toX(d.v.x),
+        cy: toY(d.v.y),
+        r: 3,
+        fill: "var(--ash)",
+      });
+      const label = el("text", {
+        x: toX(d.v.x) + d.lx,
+        y: toY(d.v.y) + d.ly,
+        fill: "var(--ash)",
+        "font-size": 11,
+        "font-family": "var(--font-mono)",
+      });
+      label.textContent = `${d.label} [${d.v.x}, ${d.v.y}]`;
+      g.append(line, dot, label);
+      arrows.appendChild(g);
+      return { line, dot, label, g };
+    });
+
+    // query arrow + handle
+    const qLine = el("line", {
+      x1: OX,
+      y1: OY,
+      x2: 0,
+      y2: 0,
+      stroke: "var(--ember)",
+      "stroke-width": 2,
+    });
+    const qHandle = el("circle", {
+      cx: 0,
+      cy: 0,
+      r: 7,
+      fill: "var(--ember)",
+      stroke: "var(--bg-2)",
+      "stroke-width": 2,
+      tabindex: 0,
+      role: "slider",
+      "aria-label": "Query vector — drag, or use arrow keys to move",
+    });
+    const qLabel = el("text", {
+      x: 0,
+      y: 0,
+      fill: "var(--ember)",
+      "font-size": 11,
+      "font-family": "var(--font-mono)",
+      "text-anchor": "end",
+    });
+    qLabel.textContent = "your query";
+    queryG.append(qLine, qHandle, qLabel);
+
+    let q: Vec = { x: 0.62, y: 0.6 };
+
+    const update = () => {
+      qLine.setAttribute("x2", String(toX(q.x)));
+      qLine.setAttribute("y2", String(toY(q.y)));
+      qHandle.setAttribute("cx", String(toX(q.x)));
+      qHandle.setAttribute("cy", String(toY(q.y)));
+      qLabel.setAttribute("x", String(toX(q.x) - 10));
+      qLabel.setAttribute("y", String(toY(q.y) + 22));
+
+      const scored = DOCS.map((d) => ({ ...d, score: cos(q, d.v) })).sort(
+        (a, b) => b.score - a.score,
+      );
+      const best = scored[0];
+
+      qHandle.setAttribute(
+        "aria-valuetext",
+        `query at ${q.x.toFixed(2)}, ${q.y.toFixed(2)}. Closest: ${best.label}, similarity ${best.score.toFixed(2)}`,
+      );
+
+      rankEl.innerHTML = "";
+      for (const d of scored) {
+        const row = document.createElement("li");
+        row.className = "vs-row" + (d.id === best.id ? " is-best" : "");
+        const pct = Math.max(0, (d.score + 1) / 2) * 100;
+        row.innerHTML = `
+          <span class="vs-row-name">${d.label}${d.id === best.id ? " ← closest" : ""}</span>
+          <span class="vs-bar"><span style="width:${pct.toFixed(1)}%"></span></span>
+          <span class="vs-val">${d.score.toFixed(2)}</span>
+        `;
+        rankEl.appendChild(row);
+      }
+
+      const dot =
+        (q.x * best.v.x + q.y * best.v.y).toFixed(2);
+      const mq = Math.hypot(q.x, q.y).toFixed(2);
+      const md = Math.hypot(best.v.x, best.v.y).toFixed(2);
+      calcEl.innerHTML = `<strong>cos(q, ${best.label})</strong> = q·d / |q||d|<br/>`
+        + `= (${q.x.toFixed(2)}·${best.v.x} + ${q.y.toFixed(2)}·${best.v.y}) / (${mq}·${md})`
+        + ` = ${dot} / ${(Number(mq) * Number(md)).toFixed(2)}`
+        + ` = <strong>${best.score.toFixed(2)}</strong>`;
+
+      // arc between query and best vector
+      arcG.innerHTML = "";
+      const a1 = Math.atan2(best.v.y, best.v.x);
+      const a2 = Math.atan2(q.y, q.x);
+      const r = 55;
+      const p1 = { x: toX(Math.cos(a1) * (r / S)), y: toY(Math.sin(a1) * (r / S)) };
+      const p2 = { x: toX(Math.cos(a2) * (r / S)), y: toY(Math.sin(a2) * (r / S)) };
+      const cross = best.v.x * q.y - best.v.y * q.x;
+      const sweep = cross > 0 ? 1 : 0;
+      arcG.appendChild(
+        el("path", {
+          d: `M ${p1.x} ${p1.y} A ${r} ${r} 0 0 ${sweep} ${p2.x} ${p2.y}`,
+          fill: "none",
+          stroke: "rgba(255,106,43,0.5)",
+          "stroke-width": 1,
+          "stroke-dasharray": "3 3",
+        }),
+      );
+      const deg = (Math.abs(a1 - a2) * (180 / Math.PI)).toFixed(0);
+      const mid = (a1 + a2) / 2;
+      const degLabel = el("text", {
+        x: toX(Math.cos(mid) * ((r + 18) / S)),
+        y: toY(Math.sin(mid) * ((r + 18) / S)),
+        fill: "var(--ember)",
+        "font-size": 10,
+        "font-family": "var(--font-mono)",
+        "text-anchor": "middle",
+      });
+      degLabel.textContent = `${deg}°`;
+      arcG.appendChild(degLabel);
+    };
+
+    // drag
+    const svgPoint = (ev: PointerEvent) => {
+      const rect = svg.getBoundingClientRect();
+      const x = ((ev.clientX - rect.left) / rect.width) * W;
+      const y = ((ev.clientY - rect.top) / rect.height) * H;
+      return {
+        x: Math.max(-1, Math.min(1, (x - OX) / S)),
+        y: Math.max(-1, Math.min(1, (OY - y) / S)),
+      };
+    };
+    let dragging = false;
+    qHandle.addEventListener("pointerdown", (ev) => {
+      dragging = true;
+      (ev.target as Element).setPointerCapture?.((ev as PointerEvent).pointerId);
+      ev.preventDefault();
+    });
+    svg.addEventListener("pointermove", (ev) => {
+      if (!dragging) return;
+      q = svgPoint(ev);
+      update();
+    });
+    window.addEventListener("pointerup", () => (dragging = false));
+
+    qHandle.addEventListener("keydown", (ev) => {
+      const step = ev.shiftKey ? 0.1 : 0.04;
+      const e = ev as KeyboardEvent;
+      if (e.key === "ArrowLeft") q.x = Math.max(-1, q.x - step);
+      else if (e.key === "ArrowRight") q.x = Math.min(1, q.x + step);
+      else if (e.key === "ArrowUp") q.y = Math.min(1, q.y + step);
+      else if (e.key === "ArrowDown") q.y = Math.max(-1, q.y - step);
+      else return;
+      e.preventDefault();
+      update();
+    });
+
+    root.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const preset = PRESETS[b.dataset.preset || "dog"];
+        if (preset) {
+          q = { ...preset };
+          update();
+        }
+      });
+    });
+
+    update();
+  }
+</script>

@@ -1,0 +1,114 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Chunking"
+question: "Why does a search system that understands meaning still miss the answer that was right there in the document?"
+oneSentence: "Chunking is the decision about what counts as one searchable unit — and most retrieval failures start there."
+fields: ["retrieval", "chunking"]
+readingTime: "13 min"
+slug: "chunking"
+description: "Chunking explained: why retrieval searches pieces, not documents, what size and overlap actually trade, and why most “the retriever is bad” problems are really cutting problems."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import ChunkLab from "../../components/distill/ChunkLab.astro";
+
+<Section n="02" label="The intuition" title="Retrieval never searches documents.">
+
+Here is the uncomfortable fact underneath every retrieval system: it does not search your documents. It searches **pieces** of your documents.
+
+Before anything is embedded or indexed, every document is cut into chunks. Whatever decision made that cut also decided what can ever be found. Cut an answer in half and no clever model downstream can reunite it.
+
+<Figure caption="Same passage, two different cuts. Move the sliders and watch the answer survive — or not.">
+  <ChunkLab />
+</Figure>
+
+Two forces pull in opposite directions:
+
+- **Small chunks** are precise — a short piece is about one thing, so its <Term def="A learned list of numbers that represents meaning. Similar meanings get similar numbers.">embedding</Term> is sharp. But a small chunk carries little context, and the answer often needs its neighbours to make sense.
+- **Large chunks** carry context and survive more questions — but their embedding becomes an average of everything inside them, and averages are mush.
+
+Overlap is the usual compromise: each chunk repeats a little of the previous one, so a sentence that would have been cut has a second chance. It works, and it costs storage and duplicate results.
+
+<Deeper>
+
+The heuristics that survive contact with real documents are boring ones. Prefer natural boundaries — headings, paragraphs, list items — before you start counting tokens. Keep tables and their captions together; a table without its caption is unsearchable data. Attach the document title to every chunk, because “Article 4, section 2” means nothing on its own.
+
+A useful rule of thumb: **one chunk, one idea.** If a chunk contains three ideas, the embedding is an average of three things, and it will be nobody's best match.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="Why bigger chunks get blurrier.">
+
+A chunk embedding is, very roughly, the average of the embeddings of the sentences inside it. Averaging is where the blur comes from.
+
+Say the answer sentence points in a clear direction: `[0.9, 0.1]`. Add three sentences about other topics and the average drifts toward the middle of the document's overall topic. The vector still looks reasonable — it is just less *specific*. Similarity to your question drops, and a vaguer chunk from a noisier document can overtake it.
+
+<MathOnly>
+
+If a chunk contains sentences with embeddings `e₁ … eₙ`, a simplified chunk vector is:
+
+`E(chunk) ≈ (e₁ + e₂ + … + eₙ) / n`
+
+Cosine similarity to a query `q` is `cos(q, E(chunk))`. Adding an unrelated sentence with small projection onto `q` moves the average away from `q`, lowering the score. The effect is not a bug — it is arithmetic.
+
+There is also a hard limit: the embedding model has a maximum input length. Text beyond that limit is silently truncated, so a chunk that is too large can lose its ending without any error message.
+
+</MathOnly>
+
+<Deeper>
+
+This is also why “just embed the whole document” fails. The document vector becomes a summary of the document's topic, which is fine for *routing* (“this file is about contracts”) and terrible for *answering* (“what is the notice period?”).
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="Cut with intent. Keep the address.">
+
+<Figure caption="Focus a step to see what it does. Distill groups the six steps into their three real jobs.">
+  <Pipeline
+    steps={[
+      { label: "Parse", detail: "Extract text with its structure — headings, paragraphs, lists, tables and captions. The structure you throw away here is context you cannot get back later." },
+      { label: "Split", detail: "Apply the cutting rules: natural boundaries first, then size and overlap. This is the decision the rest of the system lives with." },
+      { label: "Embed", detail: "Embed each chunk. If the model expects a prefix like 'passage:' on documents and 'query:' on searches, this is where skipping it quietly costs accuracy." },
+      { label: "Store", detail: "Keep each chunk's address: source document, position, heading path, and a hash so you can detect when re-indexing is needed." },
+      { label: "Retrieve", detail: "Standard search over chunks — lexical, vector, or both. The chunk is the unit being scored, not the document." },
+      { label: "Expand", detail: "Before answering, fetch neighbours or the parent section for the top chunks. Retrieval found a sentence; the answer may need its paragraph." },
+    ]}
+    groups={[
+      { label: "Cut with intent", detail: "Parsing and splitting decide what can ever be found. Most retrieval quality is decided here, before any model runs.", steps: [0, 1] },
+      { label: "Keep the address", detail: "Chunks without metadata cannot be cited, expanded, or re-indexed safely. The address is part of the data, not an afterthought.", steps: [2, 3] },
+      { label: "Give context back", detail: "Search in small units for precision, then hand the answer builder the surrounding context. This is the trick that makes small chunks usable.", steps: [4, 5] },
+    ]}
+  />
+</Figure>
+
+The last two steps are the ones beginners skip. Searching small and *answering* with context is how production systems get both precision and readability.
+
+<Deeper>
+
+“Parent retrieval” takes this further: embed small children for precise matching, but store a link to the larger parent section and hand that to the model. The retriever stays sharp; the answer stays whole.
+
+</Deeper>
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="The failure nobody blames on chunking.">
+
+- **The answer is split.** The most common retrieval failure in real systems, and it looks like a model problem. The model never saw the whole answer; it was cut in half at index time.
+- **Tables and figures.** A number in a table is meaningless without its header row and caption. Most parsers separate them.
+- **Back-references.** “See above”, “as described in section 2”, pronouns with no referent — chunks that depend on text outside themselves.
+- **Overlap duplicates.** Generous overlap guarantees the same sentence can appear in several results, crowding out other useful chunks.
+- **Silent truncation.** A chunk that exceeds the model's input limit loses its ending — with no error, no warning, just missing text.
+- **Metadata lost.** Without source and position, you cannot cite, cannot expand, cannot re-index only what changed.
+
+When someone says “the retriever is bad”, the honest first question is: **should the retriever have been able to find this?** If the answer was split at index time, the retriever was never given a chance.
+
+</Section>

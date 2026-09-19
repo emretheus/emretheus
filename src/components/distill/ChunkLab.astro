@@ -1,0 +1,214 @@
+---
+// Chunking lab: cut the same passage with different size/overlap and watch
+// whether the answer survives the cut.
+---
+
+<div class="cl" data-cl>
+  <div class="cl-head">
+    <span class="label">Chunk lab</span>
+    <p class="cl-query label">
+      query · “How much notice is required to end the agreement?”
+    </p>
+  </div>
+
+  <div class="cl-controls">
+    <label class="cl-slider">
+      <span class="label">size <em data-cl-size-val>14</em> words</span>
+      <input type="range" min="8" max="56" step="2" value="14" data-cl-size />
+    </label>
+    <label class="cl-slider">
+      <span class="label">overlap <em data-cl-overlap-val>0</em> words</span>
+      <input type="range" min="0" max="12" step="1" value="0" data-cl-overlap />
+    </label>
+  </div>
+
+  <ol class="cl-chunks" data-cl-chunks></ol>
+
+  <p class="cl-verdict" data-cl-verdict aria-live="polite"></p>
+  <p class="cl-meta label" data-cl-meta></p>
+</div>
+
+<style is:global>
+  .cl {
+    background: var(--bg-2);
+  }
+  .cl-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .cl-query {
+    color: var(--ash);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: none;
+  }
+
+  .cl-controls {
+    display: flex;
+    gap: clamp(1.5rem, 5vw, 4rem);
+    padding: 0.5rem 1.15rem 1rem;
+    flex-wrap: wrap;
+  }
+  .cl-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .cl-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .cl-slider input[type="range"] {
+    width: clamp(8rem, 18vw, 13rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+
+  .cl-chunks {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    padding: 0 1.15rem;
+  }
+  .cl-chunk {
+    background: var(--bg-3);
+    padding: 0.75rem 0.85rem;
+    min-height: 7.5rem;
+  }
+  .cl-chunk-id {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .cl-chunk-id .cl-hit {
+    color: var(--ember);
+  }
+  .cl-chunk-text {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1.6;
+    color: var(--ash);
+    word-break: break-word;
+  }
+  .cl-chunk-text mark {
+    background: var(--heat);
+    color: var(--bone);
+    padding: 0 0.1em;
+  }
+
+  .cl-verdict {
+    margin: 1.1rem 1.15rem 0;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    color: var(--bone);
+    max-width: 62ch;
+  }
+  .cl-verdict.is-bad {
+    color: var(--ash);
+  }
+  .cl-meta {
+    padding: 0.75rem 1.15rem 1.15rem;
+    font-size: 0.62rem;
+  }
+
+  @media (max-width: 900px) {
+    .cl-chunks {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
+
+<script>
+  const PASSAGE =
+    "Either party may end this agreement by giving the other party thirty days written notice of termination to take effect. " +
+    "Notice must be delivered in writing and is counted from the day it is received. " +
+    "During the notice period both parties remain bound by their obligations, including confidentiality. " +
+    "The service level target is 99.9% availability measured monthly. " +
+    "If the target is missed, the customer receives a service credit on the next invoice. " +
+    "Fees already paid are not refunded.";
+
+  const root = document.querySelector<HTMLElement>("[data-cl]");
+  if (root) {
+    const sizeInput = root.querySelector<HTMLInputElement>("[data-cl-size]")!;
+    const overlapInput = root.querySelector<HTMLInputElement>("[data-cl-overlap]")!;
+    const sizeVal = root.querySelector<HTMLElement>("[data-cl-size-val]")!;
+    const overlapVal = root.querySelector<HTMLElement>("[data-cl-overlap-val]")!;
+    const list = root.querySelector<HTMLElement>("[data-cl-chunks]")!;
+    const verdict = root.querySelector<HTMLElement>("[data-cl-verdict]")!;
+    const meta = root.querySelector<HTMLElement>("[data-cl-meta]")!;
+
+    const tokens = PASSAGE.split(/\s+/);
+    const highlight = new Set(["thirty", "days", "written", "notice", "termination"]);
+    const aStart = tokens.findIndex((t) => t.startsWith("thirty"));
+    const aEnd = tokens.findIndex((t) => t.startsWith("termination"));
+
+    const render = () => {
+      const size = Number(sizeInput.value);
+      const overlap = Math.min(Number(overlapInput.value), size - 2);
+      sizeVal.textContent = String(size);
+      overlapVal.textContent = String(overlap);
+
+      const step = Math.max(size - overlap, 1);
+      const chunks: { start: number; end: number }[] = [];
+      for (let s = 0; s < tokens.length; s += step) {
+        chunks.push({ start: s, end: Math.min(s + size, tokens.length) });
+        if (s + size >= tokens.length) break;
+      }
+
+      list.innerHTML = "";
+      let stored = 0;
+      let intact = false;
+
+      chunks.forEach((c, i) => {
+        const words = tokens.slice(c.start, c.end);
+        stored += words.length;
+        const covers = aStart >= c.start && aEnd < c.end;
+        if (covers) intact = true;
+
+        const html = words
+          .map((w) =>
+            highlight.has(w.replace(/[^a-z]/gi, "").toLowerCase())
+              ? `<mark>${w}</mark>`
+              : w,
+          )
+          .join(" ");
+
+        const li = document.createElement("li");
+        li.className = "cl-chunk";
+        li.innerHTML = `
+          <div class="cl-chunk-id">
+            <span class="label">chunk ${String(i + 1).padStart(2, "0")}</span>
+            ${covers ? '<span class="label cl-hit">contains answer</span>' : ""}
+          </div>
+          <p class="cl-chunk-text">${html}</p>
+        `;
+        list.appendChild(li);
+      });
+
+      if (intact) {
+        verdict.textContent =
+          "One chunk contains the whole answer — thirty days written notice survives the cut.";
+        verdict.classList.remove("is-bad");
+      } else {
+        verdict.textContent =
+          "No single chunk contains the whole answer. The sentence is split, and no retriever can put it back together.";
+        verdict.classList.add("is-bad");
+      }
+
+      const redundancy = Math.round(((stored - tokens.length) / tokens.length) * 100);
+      meta.textContent = `${chunks.length} chunks · ${stored} stored words for a ${tokens.length}-word passage${
+        redundancy > 0 ? ` · +${redundancy}% redundancy from overlap` : ""
+      }`;
+    };
+
+    sizeInput.addEventListener("input", render);
+    overlapInput.addEventListener("input", render);
+    render();
+  }
+</script>
