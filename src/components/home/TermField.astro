@@ -236,28 +236,29 @@ const CLUSTERS = [
     const scatter = (animate: boolean) => {
       const hr = hero.getBoundingClientRect();
       const o = rows.getBoundingClientRect();
-      const foot = document.querySelector<HTMLElement>("[data-hero-foot]");
       const minX = hr.left - o.left + 12;
       const maxX = hr.right - o.left - 12;
       const minY = hr.top - o.top + 74;
-      const footTop = foot ? foot.getBoundingClientRect().top - o.top : -20;
-      const maxY = Math.min(footTop - 28, -20);
+      const maxY = hr.bottom - o.top - 20;
       const points: { x: number; y: number }[] = [];
       const toHeroX = o.left - hr.left;
       const toHeroY = o.top - hr.top;
 
-      /* keep drifting terms clear of the headline block */
-      const content = document.querySelector<HTMLElement>(".hero-grid");
-      let avoid: { l: number; t: number; r: number; b: number } | null = null;
-      if (content) {
-        const cr = content.getBoundingClientRect();
-        avoid = {
-          l: cr.left - o.left - 28,
-          t: cr.top - o.top - 24,
-          r: cr.right - o.left + 28,
-          b: cr.bottom - o.top + 24,
-        };
-      }
+      /* keep drifting terms clear of the headline block and the thesis row,
+         but let them float through the band where the distilled field lives */
+      const avoid: { l: number; t: number; r: number; b: number }[] = [];
+      const addAvoid = (el: Element | null, padX: number, padY: number) => {
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        avoid.push({
+          l: r.left - o.left - padX,
+          t: r.top - o.top - padY,
+          r: r.right - o.left + padX,
+          b: r.bottom - o.top + padY,
+        });
+      };
+      addAvoid(document.querySelector(".hero-grid"), 28, 24);
+      addAvoid(document.querySelector("[data-hero-foot]"), 20, 16);
 
       rows.style.height = `${height}px`;
       field.classList.add("is-js");
@@ -270,12 +271,9 @@ const CLUSTERS = [
         for (let k = 0; k < 24; k++) {
           x = minX + Math.random() * Math.max(maxX - minX - w, 40);
           y = minY + Math.random() * Math.max(maxY - minY - h, 40);
-          const clear =
-            !avoid ||
-            x + w < avoid.l ||
-            x > avoid.r ||
-            y + h < avoid.t ||
-            y > avoid.b;
+          const clear = avoid.every(
+            (a) => x + w < a.l || x > a.r || y + h < a.t || y > a.b,
+          );
           if (clear) break;
         }
         const r = (Math.random() * 14 - 7).toFixed(2);
@@ -349,7 +347,7 @@ const CLUSTERS = [
             } catch (e) {}
             distill();
           }
-        }, 4200);
+        }, 3200);
       }
       inited = true;
     };
