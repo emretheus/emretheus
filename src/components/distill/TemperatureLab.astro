@@ -44,21 +44,21 @@
   <div class="tl-metrics">
     <div class="tl-metric">
       <span class="label tl-metric-name">Top token</span>
-      <span class="tl-metric-value" data-tl-top>—</span>
+      <span class="tl-metric-value" data-tl-top>…</span>
       <span class="label tl-metric-line" data-tl-top-line></span>
       <span class="tl-metric-q">What does the model want to say?</span>
     </div>
     <div class="tl-metric">
       <span class="label tl-metric-name">Mode</span>
-      <span class="tl-metric-value" data-tl-mode>—</span>
+      <span class="tl-metric-value" data-tl-mode>…</span>
       <span class="label tl-metric-line" data-tl-mode-line></span>
       <span class="tl-metric-q">Always the top token, or a draw?</span>
     </div>
     <div class="tl-metric">
       <span class="label tl-metric-name">Last 10 runs</span>
-      <span class="tl-metric-value" data-tl-runs>—</span>
+      <span class="tl-metric-value" data-tl-runs>…</span>
       <span class="label tl-metric-line" data-tl-runs-line></span>
-      <span class="tl-metric-q">Same prompt, same settings — same answer?</span>
+      <span class="tl-metric-q">Same prompt, same settings, same answer?</span>
     </div>
   </div>
 
@@ -334,7 +334,7 @@
       for (let i = 0; i < 10; i++) {
         const token = history[i];
         if (token === undefined) {
-          chips.push(`<span class="tl-chip is-empty">—</span>`);
+          chips.push(`<span class="tl-chip is-empty">…</span>`);
         } else {
           const cls = token === DOCS[0].token ? "is-a" : "is-b";
           chips.push(
@@ -347,7 +347,7 @@
 
     const renderRuns = () => {
       if (history.length === 0) {
-        out.runs.textContent = "—";
+        out.runs.textContent = "…";
         out.runsLine.textContent = "press “Run 10 completions”";
         return;
       }
@@ -389,7 +389,7 @@
 
       out.top.textContent = `“${top.token.trim()}”`;
       out.topLine.textContent = isGreedy()
-        ? `logit ${top.z.toFixed(3)} · p 100% — argmax`
+        ? `logit ${top.z.toFixed(3)} · p 100% (argmax)`
         : `logit ${top.z.toFixed(3)} · p ${(top.p * 100).toFixed(1)}% at T = ${t.toFixed(2)}`;
       out.mode.textContent = isGreedy() ? "greedy" : "sampling";
       out.modeLine.textContent = isGreedy()
@@ -402,19 +402,19 @@
 
       if (isGreedy() && noisy) {
         note.textContent =
-          "Same prompt, same temperature, same seed — and the answer still flips. The top two logits differ by 0.005; the arithmetic noise is larger, so the argmax moves. This is what “determinism is not guaranteed” means in practice.";
+          "Same prompt, same temperature, same seed, and the answer still flips. The top two logits differ by 0.005; the arithmetic noise is larger, so the argmax moves. This is what “determinism is not guaranteed” means in practice.";
       } else if (isGreedy()) {
         note.textContent =
-          "Greedy decoding with clean arithmetic: the sampler always takes the most likely token, so every run returns the same answer. On paper — and only on paper — temperature 0 is deterministic.";
+          "Greedy decoding with clean arithmetic: the sampler always takes the most likely token, so every run returns the same answer. On paper, and only on paper, temperature 0 is deterministic.";
       } else if (t < 1) {
         note.textContent =
-          "Sharpened: dividing by T < 1 widens the gap between logits, so the top token wins more often. Sampling never disappears, so repeated calls can still differ — especially in a near-tie like this one.";
+          "Sharpened: dividing by T < 1 widens the gap between logits, so the top token wins more often. Sampling never disappears, so repeated calls can still differ, especially in a near-tie like this one.";
       } else if (t > 1) {
         note.textContent =
-          "Flattened: at T > 1 unlikely tokens become plausible. Notice the tail — “a” and “the” stop being negligible. This is useful for brainstorming and dangerous for extraction.";
+          "Flattened: at T > 1 unlikely tokens become plausible. Notice the tail: “a” and “the” stop being negligible. This is useful for brainstorming and dangerous for extraction.";
       } else {
         note.textContent =
-          "T = 1 is not maximum randomness. It is the distribution the model actually learned — which is why most providers treat 1 as the default. Turning it down concentrates that distribution; turning it up flattens it.";
+          "T = 1 is not maximum randomness. It is the distribution the model actually learned, which is why most providers treat 1 as the default. Turning it down concentrates that distribution; turning it up flattens it.";
       }
 
       if (history.length > 0) {

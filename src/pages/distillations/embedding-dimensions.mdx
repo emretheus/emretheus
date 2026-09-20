@@ -1,0 +1,121 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Embedding Dimensions"
+question: "What do you actually lose when you shrink an embedding from 1536 numbers to 256?"
+oneSentence: "You are not deleting most of the meaning; you are lowering the resolution of the semantic space, and the first thing to blur is the difference between things that are almost the same."
+fields: ["embeddings", "retrieval", "dimensions"]
+readingTime: "13 min"
+slug: "embedding-dimensions"
+description: "Embedding dimensions explained: what truncation really removes, why scores compress as you cut, how Matryoshka training makes short vectors work, and why rerankers exist. With an interactive lab."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import DimensionsLab from "../../components/distill/DimensionsLab.astro";
+
+<Section n="02" label="The intuition" title="Not facts. Distances.">
+
+An <Term def="A learned list of numbers (coordinates) that represents the meaning of a word, sentence or document. Similar meanings get similar numbers.">embedding</Term> looks like a list of facts, but it is not one. No dimension means “PostgreSQL”. The meaning is spread across all of them, and what a search engine uses is not the numbers themselves. It uses the distances between them.
+
+So when you cut a 1536-dimensional vector down to 256, you are not removing 83% of the meaning. You are removing 83% of the space. Every point gets projected into a smaller room, and points that were apart can land close together, or exactly on top of each other.
+
+That is the loss that matters in practice: not information about what a document is about, but the geometric distance that separated it from documents that are almost the same.
+
+The photo analogy helps. Take a 4K image down to 480p and you still see a car. What disappears is the license plate, the logo on the hubcap, the small text on the door. Broad meaning survives compression very well. Fine distinctions do not.
+
+<Figure caption="Same query, same four documents, fewer dimensions. Synthetic vectors with real cosine arithmetic over the first k dimensions.">
+  <DimensionsLab />
+</Figure>
+
+At 1536 dimensions the list is cleanly spread: 0.96, 0.81, 0.78, 0.41. At 256 the document about a different database climbs to second place, because the block that separated it was cut. At 64 all four cosines are 1.000, and the index can no longer tell termination from pooling from MySQL. Nothing was deleted from the documents. The geometry that separated them is simply not in those 64 numbers.
+
+<Deeper>
+
+The numbers have practical weight. A float32 vector at 1536 dimensions is about 6 KB; at 256 dimensions it is about 1 KB. For one million documents that is roughly 6 GB versus 1 GB of vector data, and the dot product is about six times cheaper. That is why dimension reduction is everywhere. The question is not whether to shrink, but how far you can shrink before your own queries start to suffer.
+
+Dimension count is also not a quality score. A model trained to work well at 256 dimensions can beat a badly trained model at 1536. What matters is how the training shaped the space, not how big it is.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="Keep the first k coordinates, then compare.">
+
+Truncation is exactly what it sounds like: keep the first `k` numbers of every vector and compute cosine similarity on those. Geometrically it is a projection onto the first `k` axes.
+
+A small example, with made-up axes so the picture is visible. Say dimension one means “database”, two means “PostgreSQL”, three means “termination”:
+
+- Query: `[1, 1, 1]`
+- A: `[1, 1, 1]` (terminate PostgreSQL connections)
+- B: `[1, 1, 0]` (PostgreSQL connection pooling)
+
+Drop the third dimension and both documents become `[1, 1]`. The query cannot tell them apart anymore, and no amount of tuning downstream brings that difference back.
+
+Why do the scores compress? Shared meaning lives everywhere, while the distinctions live in a few dimensions. Cut those dimensions and every vector keeps mostly the part it has in common with the query. The cosines move toward each other. In the lab the spread between the best and worst document goes from 0.553 at full size, to 0.187 at 256, to 0.000 at 64.
+
+<MathOnly>
+
+Cosine similarity over the first `k` dimensions is:
+
+`cos_k(q, d) = (Σ_{i≤k} qᵢ·dᵢ) / (√(Σ_{i≤k} qᵢ²) · √(Σ_{i≤k} dᵢ²))`
+
+The norms are recomputed on the prefix, which has a counterintuitive consequence: cutting dimensions can raise a score. In the lab, document D sits at cosine 0.406 with all 1536 dimensions. Cut the MySQL block and it rises to 0.862, because the dimensions that made it *different* from the query are gone, and only the shared topic remains.
+
+Two practical warnings follow from the formula:
+
+- Scores from truncated vectors are not comparable with scores from full vectors. Do not carry a threshold across sizes.
+- Truncation is not PCA. It keeps the first `k` axes, not the best `k` directions. If the important variation lives in later dimensions, naive truncation throws it away, and Matryoshka training is what makes the first `k` axes the useful ones on purpose.
+
+</MathOnly>
+
+<Deeper>
+
+Real embeddings have no interpretable axes, and their information is distributed. The block structure in the lab exists only to make the mechanism visible. In a real model the distinction between “termination” and “pooling” is not stored in one place, which is why you cannot hand-pick dimensions to keep. You can only choose a size and measure what it costs.
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="Why Matryoshka exists, and what rerankers are for.">
+
+<Figure caption="Focus a step. The dimension choice happens once, at index time, and everything downstream inherits it.">
+  <Pipeline
+    steps={[
+      { label: "Query", detail: "The user's question arrives as text. The index already has a fixed resolution, chosen before anyone asked anything." },
+      { label: "Embed at a chosen size", detail: "The model returns 1536 numbers, and you keep the first k. Matryoshka-trained models make that prefix useful on its own instead of a random slice." },
+      { label: "Store and index", detail: "Vectors are stored at that size: about 6 KB per document at 1536 dimensions, about 1 KB at 256. Every stored vector must use the same size." },
+      { label: "Search", detail: "Cosine similarity finds the nearest candidates. At lower resolution, near-duplicates crowd together and the top-k becomes less trustworthy." },
+      { label: "Rerank", detail: "A cross-encoder reads the query and each candidate together and reorders the shortlist. This is where compressed distinctions can be recovered, at the cost of a model call per candidate." },
+      { label: "Answer", detail: "A smaller, better-ordered context reaches the generator. The resolution decision from step two still shapes everything above it." },
+    ]}
+    groups={[
+      { label: "Choose the resolution", detail: "One decision, made once: how many dimensions to keep. It sets the memory bill and the ceiling on how fine the comparisons can be.", steps: [0, 1, 2] },
+      { label: "Search at that resolution", detail: "Cheap and approximate by design. When documents are nearly identical, the index may not separate them.", steps: [3] },
+      { label: "Recover the detail", detail: "The reranker spends real compute to look closer, which is why the first stage is allowed to be cheap and compressed.", steps: [4, 5] },
+    ]}
+  />
+</Figure>
+
+Naive truncation is a gamble, because you do not know which dimensions carry the distinctions. **Matryoshka Representation Learning** removes the gamble: the model is trained so that the first 256 dimensions are useful on their own, the first 512 are better, and the full vector is best. One model, several usable sizes, chosen at query time.
+
+This is why hosted models can offer a `dimensions` parameter (OpenAI's text-embedding-3 family is the best-known example), and why open models such as Nomic Embed are trained with Matryoshka objectives. You pay for resolution, not for a different model.
+
+And this is where the [reranker](/distillations/reranking/) comes back in. When 256 dimensions squeeze three different documents into a 0.05 band, the first stage has done its job if all three are in the shortlist. The reranker then reads query and document together, at full attention, and puts the right one first. Cheap recall at low resolution, expensive precision at the top. The dimension choice and the reranker are two ends of the same trade.
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="The fine print.">
+
+- **Cutting is not monotone.** Removing dimensions can raise a score, as document D does in the lab. If a document looks more relevant after compression, that is usually a sign, not an improvement.
+- **The right size is empirical.** Build a small set of queries where the top candidates are near-duplicates, then measure recall@k at 1536, 768, 256 and 128. The number that matters is the smallest size that still finds the right document.
+- **Never mix sizes in one index.** Vectors of different dimensions are not comparable, and thresholds do not transfer between sizes. Truncate consistently, at index time and at query time.
+- **Matryoshka is not magic.** The first 256 dimensions are trained to be useful, but they are still lower resolution. Fine distinctions are the first thing to go, by design.
+- **Dimension count is not quality.** Compare models at the size you will actually use, not at their maximum.
+- **The reranker cannot rescue recall.** If compression pushes the right document out of the shortlist entirely, no second stage brings it back. Compression first hurts recall, then ordering.
+- **Measure the cost honestly.** Six times less memory and a cheaper dot product are real wins at a million vectors. Whether they are worth the lost distinctions depends on your queries, and only your queries can answer that.
+
+</Section>

@@ -37,19 +37,19 @@
   <div class="jl-metrics">
     <div class="jl-metric">
       <span class="label jl-metric-name">nDCG@5</span>
-      <span class="jl-metric-value" data-jl-ndcg>—</span>
+      <span class="jl-metric-value" data-jl-ndcg>…</span>
       <span class="label jl-metric-line" data-jl-ndcg-line></span>
       <span class="jl-metric-q">How well is the list ordered?</span>
     </div>
     <div class="jl-metric">
       <span class="label jl-metric-name">Answers in top 2</span>
-      <span class="jl-metric-value" data-jl-top2>—</span>
+      <span class="jl-metric-value" data-jl-top2>…</span>
       <span class="label jl-metric-line" data-jl-top2-line></span>
       <span class="jl-metric-q">Is the top of the list defensible?</span>
     </div>
     <div class="jl-metric">
       <span class="label jl-metric-name">Generation</span>
-      <span class="jl-metric-value" data-jl-gen>—</span>
+      <span class="jl-metric-value" data-jl-gen>…</span>
       <span class="label jl-metric-line" data-jl-gen-line></span>
       <span class="jl-metric-q">Do you pay for a weak answer?</span>
     </div>
@@ -254,7 +254,7 @@
     text: string;
     /** 2 = answers the question, 1 = mentions the topic, 0 = unrelated */
     grade: number;
-    /** hybrid retrieval score — decides the fallback order */
+    /** hybrid retrieval score; decides the fallback order */
     hybrid: number;
     /** calibrated probability that this passage answers the question */
     p: number;
@@ -409,27 +409,27 @@
           : "one of the two passages that answer the question is still buried";
       out.gen.textContent = abstain ? "skipped" : "called";
       out.genLine.textContent = abstain
-        ? `nothing reached p ≥ ${t.toFixed(2)} — no answer generated`
-        : `top p ${order[0].p.toFixed(2)} ≥ ${t.toFixed(2)} — one generation call`;
+        ? `nothing reached p ≥ ${t.toFixed(2)}; no answer generated`
+        : `top p ${order[0].p.toFixed(2)} ≥ ${t.toFixed(2)}; one generation call`;
 
       if (abstain) {
         note.textContent =
-          "At this threshold nothing is confident enough to act on. A gated pipeline skips generation and says “no confident answer” — cheaper than a weak answer, but only honest if the threshold is right for the domain.";
+          "At this threshold nothing is confident enough to act on. A gated pipeline skips generation and says “no confident answer”. That is cheaper than a weak answer, but only honest if the threshold is right for the domain.";
       } else if (t > 0.88) {
         note.textContent =
-          "Very high threshold: only the most confident passage is reranked. The negative result — that infections did not drop — falls back into hybrid order and sits under a background sentence. Gating can be too strict.";
+          "Very high threshold: only the most confident passage is reranked. The negative result, that infections did not drop, falls back into hybrid order and sits under a background sentence. Gating can be too strict.";
       } else if (t > 0.68) {
         note.textContent =
           "The sweet spot: both passages that answer the question are on top, and only the two candidates the model was sure about needed a decision. Everything else passed through in hybrid order.";
       } else if (t > 0.52) {
         note.textContent =
-          "The model now also decides a background sentence it rated just above the threshold. Harmless at rank 3 — but every kept candidate is context the generator has to read.";
+          "The model now also decides a background sentence it rated just above the threshold. Harmless at rank 3, but every kept candidate is context the generator has to read.";
       } else if (t > 0.1) {
         note.textContent =
-          "At this threshold the model also decides a passage it rates barely above a coin flip — an unrelated vitamin C study, now marked as kept. Low thresholds quietly turn a decision layer into an always-on reranker.";
+          "At this threshold the model also decides a passage it rates barely above a coin flip: an unrelated vitamin C study, now marked as kept. Low thresholds quietly turn a decision layer into an always-on reranker.";
       } else {
         note.textContent =
-          "Even unrelated passages clear the bar now. The model is being asked questions it already answered “no” to — the decision layer is adding cost, not judgment.";
+          "Even unrelated passages clear the bar now. The model is being asked questions it already answered “no” to; the decision layer is adding cost, not judgment.";
       }
     };
 

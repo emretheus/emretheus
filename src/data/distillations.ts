@@ -63,9 +63,9 @@ export const DISTILLATIONS: Distillation[] = [
     slug: "jev",
     title: "Jev",
     question:
-      "What if a model answered with a decision and a probability — instead of a paragraph?",
+      "What if a model answered with a decision and a probability instead of a paragraph?",
     oneSentence:
-      "Jev is a System One model that returns typed decisions with calibrated probabilities — turning “which passages should reach the model?” into a policy you can measure.",
+      "Jev is a System One model that returns typed decisions with calibrated probabilities, turning “which passages should reach the model?” into a policy you can measure.",
     fields: ["retrieval", "ranking", "evaluation"],
     readingTime: "14 min",
   },
@@ -75,9 +75,19 @@ export const DISTILLATIONS: Distillation[] = [
     question:
       "If you set temperature to 0, do you get the same answer every time?",
     oneSentence:
-      "Temperature rescales the model's next-token probabilities — 0 means always take the most likely token, 1 means sample the model's own distribution — but absolute determinism is a property of the whole stack, not a dial.",
+      "Temperature rescales the model's next-token probabilities. Zero means always take the most likely token, one means sample the model's own distribution, but absolute determinism is a property of the whole stack, not a dial.",
     fields: ["llm", "sampling", "inference"],
     readingTime: "15 min",
+  },
+  {
+    slug: "embedding-dimensions",
+    title: "Embedding Dimensions",
+    question:
+      "What do you actually lose when you shrink an embedding from 1536 numbers to 256?",
+    oneSentence:
+      "You are not deleting most of the meaning; you are lowering the resolution of the semantic space, and the first thing to blur is the difference between things that are almost the same.",
+    fields: ["embeddings", "retrieval", "dimensions"],
+    readingTime: "13 min",
   },
 ];
 

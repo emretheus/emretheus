@@ -2,11 +2,11 @@
 layout: ../../layouts/DistillationLayout.astro
 title: "Temperature"
 question: "If you set temperature to 0, do you get the same answer every time?"
-oneSentence: "Temperature rescales the model's next-token probabilities — 0 means always take the most likely token, 1 means sample the model's own distribution — but absolute determinism is a property of the whole stack, not a dial."
+oneSentence: "Temperature rescales the model's next-token probabilities. Zero means always take the most likely token, one means sample the model's own distribution, but absolute determinism is a property of the whole stack, not a dial."
 fields: ["llm", "sampling", "inference"]
 readingTime: "15 min"
 slug: "temperature"
-description: "Temperature explained: how it rescales logits, why 0 is greedy and 1 is the model's own distribution, and why temperature 0 still isn't absolutely deterministic — with an interactive lab."
+description: "Temperature explained: how it rescales logits, why 0 is greedy and 1 is the model's own distribution, and why temperature 0 still isn't absolutely deterministic, with an interactive lab."
 ---
 
 import Section from "../../components/ui/Section.astro";
@@ -19,26 +19,26 @@ import TemperatureLab from "../../components/distill/TemperatureLab.astro";
 
 <Section n="02" label="The intuition" title="A dial on a probability distribution.">
 
-Ask a language model for the next word and it does not hand you a word. It hands you a score for every token in its vocabulary — and a rule for turning those scores into a draw.
+Ask a language model for the next word and it does not hand you a word. It hands you a score for every token in its vocabulary, plus a rule for turning those scores into a draw.
 
 Temperature is that rule's dial. It divides the scores before they become probabilities. Turn it down and the distribution sharpens: likely tokens get likelier, the tail fades. Turn it up and the distribution flattens: unlikely tokens become plausible.
 
 The two values everyone argues about:
 
-- **T = 0** — the model always takes the highest-scoring token. No draw at all: greedy decoding, and most APIs special-case 0 exactly this way.
-- **T = 1** — the model samples from the distribution it actually learned. This is **not** maximum randomness. A common misconception: 1 is not “wild mode”; it is the trained distribution — which is why it is the default almost everywhere. Providers differ on the ceiling (OpenAI and Google allow up to 2, Anthropic stops at 1).
+- **T = 0**: the model always takes the highest-scoring token. There is no draw at all. This is greedy decoding, and most APIs special-case 0 exactly this way.
+- **T = 1**: the model samples from the distribution it actually learned. This is **not** maximum randomness. A common misconception says that 1 is “wild mode”, when it is really the trained distribution, which is why it is the default almost everywhere. Providers differ on the ceiling: OpenAI and Google allow up to 2, Anthropic stops at 1.
 
-<Figure caption="Drag the temperature. Run completions. Noise is ±0.02 — exaggerated so it is visible; real last-bit differences are smaller, and the effect is the same when a tie is close enough.">
+<Figure caption="Drag the temperature. Run completions. Noise is ±0.02, exaggerated so it is visible. Real last-bit differences are smaller, and the effect is the same when a tie is close enough.">
   <TemperatureLab />
 </Figure>
 
-At T = 0 every run returns “three”. Switch on a little arithmetic noise and the same prompt starts alternating between “three” and “four”. That is the short answer to *can it be absolutely deterministic?* — temperature removes one kind of randomness, not all of it.
+At T = 0 every run returns “three”. Switch on a little arithmetic noise and the same prompt starts alternating between “three” and “four”. That is the short answer to *can it be absolutely deterministic?* Temperature removes one kind of randomness, not all of it.
 
 <Deeper>
 
-**Greedy is not “most accurate”.** Always taking the top token makes extraction and classification stable, but it can trap generation in loops and flatten creative work — the model never takes the second-best word that would have opened a better sentence. Temperature 0 is a tool, not a quality setting.
+**Greedy is not “most accurate”.** Always taking the top token makes extraction and classification stable, but it can trap generation in loops and flatten creative work, because the model never takes the second-best word that would have opened a better sentence. Temperature 0 is a tool, not a quality setting.
 
-**At T = 0, top_p and top_k are dead parameters.** Truncation happens after temperature, and an argmax ignores the remaining candidates. Setting temperature 0 *and* top_p 0.9 is not “doubly deterministic”; it is one setting plus decoration.
+**At T = 0, top_p and top_k are dead parameters.** Truncation happens after temperature, and an argmax ignores the remaining candidates. Setting temperature 0 *and* top_p 0.9 is not “doubly deterministic”. It is one setting plus decoration.
 
 </Deeper>
 
@@ -50,25 +50,25 @@ The mechanism is one division. For logits `z` and temperature `T`, the probabili
 
 `p_i(T) = exp(z_i / T) / Σ_j exp(z_j / T)`
 
-Two limits matter. As `T → 0`, the largest logit takes everything — the distribution becomes a one-hot vector at the argmax. Greedy decoding is that limit case, not a separate algorithm. As `T → ∞`, all tokens become equally likely: uniform noise.
+Two limits matter. As `T → 0`, the largest logit takes everything: the distribution becomes a one-hot vector at the argmax. Greedy decoding is that limit case, not a separate algorithm. As `T → ∞`, all tokens become equally likely, which is uniform noise.
 
-The quietest property is the important one. For any `T > 0`, dividing by `T` is monotonic, so temperature **preserves the order of the tokens**. It can never change which token is most likely — only how often the sampler takes it.
+The quietest property is the important one. For any `T > 0`, dividing by `T` is monotonic, so temperature **preserves the order of the tokens**. It can never change which token is most likely, only how often the sampler takes it.
 
 And it cannot separate a tie. The ratio between the top two candidates is:
 
 `p₁ / p₂ = exp((z₁ − z₂) / T)`
 
-In the lab the gap is 0.005. At T = 0.1 the ratio is about 1.05 — a coin flip, at a temperature most people would call deterministic. A near-tie is a property of the weights and the input, and no temperature removes it.
+In the lab the gap is 0.005. At T = 0.1 the ratio is about 1.05, a coin flip at a temperature most people would call deterministic. A near-tie is a property of the weights and the input, and no temperature removes it.
 
 <MathOnly>
 
 Order of operations, as implemented by most stacks:
 
-1. **Scale** — `logits / T` (this is temperature).
-2. **Truncate** — `top_k` / `top_p` cut the tail, *after* scaling.
-3. **Sample** — one token is drawn from what remains.
+1. **Scale**: `logits / T` (this is temperature).
+2. **Truncate**: `top_k` / `top_p` cut the tail, *after* scaling.
+3. **Sample**: one token is drawn from what remains.
 
-The one-hot limit follows from the ratio: if `z₁ > z₂`, then `p₁ / p₂ = exp((z₁ − z₂)/T) → ∞` as `T → 0`, so all mass lands on the argmax.
+The one-hot limit follows from the ratio. If `z₁ > z₂`, then `p₁ / p₂ = exp((z₁ − z₂)/T) → ∞` as `T → 0`, so all mass lands on the argmax.
 
 Numbers from the lab, for the top token “three” (logit 3.405, gap 0.005 to “four”):
 
@@ -82,7 +82,7 @@ Temperature redistributes probability mass between the head and the tail. It nev
 
 <Deeper>
 
-Logits are defined up to an additive constant: adding the same number to every logit changes nothing after softmax. Temperature therefore acts on **differences** between logits. Two prompts can have wildly different absolute logits and the same distribution; the dial only cares about gaps.
+Logits are defined up to an additive constant: adding the same number to every logit changes nothing after softmax. Temperature therefore acts on **differences** between logits. Two prompts can have wildly different absolute logits and the same distribution. The dial only cares about gaps.
 
 </Deeper>
 
@@ -90,28 +90,28 @@ Logits are defined up to an additive constant: adding the same number to every l
 
 <Section n="04" label="Real system" title="Where the dial is turned.">
 
-<Figure caption="Focus a step. Temperature owns one box in this pipeline — and one box is not the whole system.">
+<Figure caption="Focus a step. Temperature owns one box in this pipeline, and one box is not the whole system.">
   <Pipeline
     steps={[
       { label: "Prompt → forward pass", detail: "Weights, kernels and hardware produce the logits. This is where numerical non-determinism is born: floating-point reductions are not associative, and kernel reduction order depends on batch shape." },
-      { label: "Logits", detail: "One score per token in the vocabulary. Nothing has been decided yet — not even the top token." },
+      { label: "Logits", detail: "One score per token in the vocabulary. Nothing has been decided yet, not even the top token." },
       { label: "Temperature", detail: "Divide by T. The only step most people think about, and the only step the dial controls." },
       { label: "Truncation", detail: "top_k / top_p cut the tail after scaling. At T = 0 these settings stop mattering." },
-      { label: "Sampler", detail: "An RNG with a seed draws one token from what remains. A seed makes this step repeatable — best effort, and only for this step." },
+      { label: "Sampler", detail: "An RNG with a seed draws one token from what remains. A seed makes this step repeatable, as a best effort, and only for this step." },
       { label: "Token → append → repeat", detail: "The chosen token joins the context and the next forward pass runs, usually against a KV cache. One draw per token, dozens of times per answer." },
     ]}
     groups={[
-      { label: "The model", detail: "Arithmetic on the GPU. Same weights, different batch, different hardware or kernel — slightly different numbers.", steps: [0, 1] },
+      { label: "The model", detail: "Arithmetic on the GPU. Same weights, different batch, different hardware or kernel, and slightly different numbers.", steps: [0, 1] },
       { label: "The policy", detail: "The only two knobs in the pipeline: how sharp the distribution is, and how much of the tail survives.", steps: [2, 3] },
-      { label: "The draw", detail: "Where randomness is obvious — and where seeds and temperature seem to promise control.", steps: [4, 5] },
+      { label: "The draw", detail: "Where randomness is obvious, and where seeds and temperature seem to promise control.", steps: [4, 5] },
     ]}
   />
 </Figure>
 
 Look at that pipeline and ask which parts temperature controls. Only step 3. Everything else is still in the room when you set T = 0:
 
-- **Batch composition.** The same prompt processed in a different batch can produce different logits, because GPU kernels reduce in different orders depending on shape. vLLM's own docs say the engine *“does not guarantee the reproducibility of the results by default, for the sake of performance”* — batch invariance is an opt-in beta flag, and even then reproducibility holds only *“on the same hardware and the same vLLM version”*.
-- **Hardware and version drift.** New GPU, new driver, new kernel, new serving stack → slightly different arithmetic. OpenAI's docs are blunt: `seed` is a *“best effort”*, *“determinism is not guaranteed”*, and the `system_fingerprint` changes when they update the numerical configuration — a few times a year.
+- **Batch composition.** The same prompt processed in a different batch can produce different logits, because GPU kernels reduce in different orders depending on shape. vLLM's own docs say the engine *“does not guarantee the reproducibility of the results by default, for the sake of performance”*. Batch invariance is an opt-in beta flag, and even then reproducibility holds only *“on the same hardware and the same vLLM version”*.
+- **Hardware and version drift.** New GPU, new driver, new kernel, new serving stack, and slightly different arithmetic. OpenAI's docs are blunt: `seed` is a *“best effort”*, *“determinism is not guaranteed”*, and the `system_fingerprint` changes when they update the numerical configuration, a few times a year.
 - **Mixture-of-experts routing.** Tiny numeric differences can change which experts fire, and that changes the output far more than the last decimal.
 - **Distributed inference.** Tensor parallelism adds cross-GPU reductions; custom all-reduce is fast and not order-stable.
 - **Near-ties.** The one your model produces every day: if the top two logits are 0.005 apart, the noise from any of the above is bigger than the gap.
@@ -126,14 +126,14 @@ The uncomfortable version: for a hosted API, “the same request” is not a wel
 
 <Section n="05" label="Where it breaks" title="The determinism checklist.">
 
-- **T = 0 removes sampling randomness, not arithmetic randomness.** It guarantees “always the top token” only if the logits are bit-identical — which the stack does not promise.
+- **T = 0 removes sampling randomness, not arithmetic randomness.** It guarantees “always the top token” only if the logits are bit-identical, which the stack does not promise.
 - **Seeds don't fix it.** A seed makes the sampler repeatable; it cannot make the forward pass repeatable. Two different logit vectors, one seed, two different answers.
-- **Test your own stack.** Run the same prompt 20 times, hash the outputs, count the distinct ones. That number — your actual determinism rate — is the only one that matters, and it varies by model, provider and week.
+- **Test your own stack.** Run the same prompt 20 times, hash the outputs, count the distinct ones. That number, your actual determinism rate, is the only one that matters, and it varies by model, provider and week.
 - **Pin what you can.** Model version, provider, parameters; log the fingerprint where one is offered; re-run the determinism check after every upgrade.
-- **If you need bit-exact reproducibility, own the whole stack.** Self-hosted engines can get close — deterministic kernels, batch invariance, frozen hardware, frozen version — at a measurable performance cost. Even then the guarantee is “same hardware, same version”, not “same request, same answer”.
+- **If you need bit-exact reproducibility, own the whole stack.** Self-hosted engines can get close (deterministic kernels, batch invariance, frozen hardware, frozen version) at a measurable performance cost. Even then the guarantee is “same hardware, same version”, not “same request, same answer”.
 - **Design for reproducible-enough.** Most systems don't need bit-exact; they need trustworthy: schema validation, retries, caching keyed on prompt + parameters, and evals that measure variance instead of pretending it away.
 - **Temperature 0 is still the right default** for extraction, classification and anything with one correct answer. Just don't confuse *greedy* with *deterministic*.
 
-Determinism is a property of the whole stack — weights, kernels, hardware, version, scheduler, sampler. Temperature is the only part of it you can change with a number.
+Determinism is a property of the whole stack: weights, kernels, hardware, version, scheduler, sampler. Temperature is the only part of it you can change with a number.
 
 </Section>

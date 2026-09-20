@@ -1,6 +1,6 @@
 # Development
 
-This repository is Emre's personal site — **Emretheus · Fire, distilled** — built
+This repository is Emre's personal site, **Emretheus · Fire, distilled**, built
 with [Astro](https://astro.build) and deployed to GitHub Pages on the custom
 domain **https://emretheus.xyz/**.
 
@@ -23,6 +23,12 @@ apart and end in one sentence; **systems** are case studies told through their
 decisions; **fragments** are short notes; **fire** is what's in progress now.
 Typographic system: Geist + Geist Mono (Fontsource). No italics; hairline-free
 surfaces; the ember accent marks understanding.
+
+## Writing style
+
+Site copy avoids em dashes. Write plain, natural sentences with commas, colons
+and full stops instead of dash-driven fragments, and keep the same voice in
+distillations, systems, fragments, lab copy and metadata.
 
 ## Project structure
 
@@ -61,8 +67,8 @@ src/
 1. Copy an existing article, e.g.
    `src/pages/distillations/semantic-search.mdx` → `your-slug.mdx`.
 2. Set the frontmatter: `title`, `question`, `oneSentence`, `fields`,
-   `readingTime`, `slug`, `description`. The layout renders **01 — The question**
-   and **06 — One sentence** for you; write sections 02–05 with:
+   `readingTime`, `slug`, `description`. The layout renders **01 · The question**
+   and **06 · One sentence** for you; write sections 02–05 with:
 
    - `<Section n="02" label="The intuition" title="…">` for each part,
    - `<Deeper>` for content shown at the “Deeper” reading depth,

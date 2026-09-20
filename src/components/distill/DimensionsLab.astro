@@ -1,0 +1,421 @@
+---
+// Dimensions lab: same query, same documents, fewer dimensions.
+// Synthetic vectors with a block structure: one shared topic block, four
+// distinction blocks, then per-document detail blocks. The cosine similarity
+// is computed over the first k dimensions only, which is exactly what a
+// truncated embedding compares.
+---
+
+<div class="dx" data-dx>
+  <div class="dx-head">
+    <span class="label">Dimensions lab · 1 query, 4 documents</span>
+    <span class="label dx-query"
+      >query · “How do I terminate a PostgreSQL idle connection?”</span
+    >
+  </div>
+
+  <div class="dx-bar">
+    <label class="dx-slider">
+      <span class="label">Dimensions kept <em data-dx-k-val>1536</em></span>
+      <input
+        type="range"
+        min="64"
+        max="1536"
+        step="64"
+        value="1536"
+        data-dx-k
+      />
+    </label>
+    <span class="label dx-res" data-dx-res>100% of 1536</span>
+  </div>
+
+  <ol class="dx-list" data-dx-list></ol>
+
+  <div class="dx-metrics">
+    <div class="dx-metric">
+      <span class="label dx-metric-name">Top match</span>
+      <span class="dx-metric-value" data-dx-top>…</span>
+      <span class="label dx-metric-line" data-dx-top-line></span>
+      <span class="dx-metric-q">Which document looks closest?</span>
+    </div>
+    <div class="dx-metric">
+      <span class="label dx-metric-name">Score spread</span>
+      <span class="dx-metric-value" data-dx-spread>…</span>
+      <span class="label dx-metric-line" data-dx-spread-line></span>
+      <span class="dx-metric-q">How far apart is the list?</span>
+    </div>
+    <div class="dx-metric">
+      <span class="label dx-metric-name">Ranking</span>
+      <span class="dx-metric-value" data-dx-rank>…</span>
+      <span class="label dx-metric-line" data-dx-rank-line></span>
+      <span class="dx-metric-q">Same order as the full vector?</span>
+    </div>
+  </div>
+
+  <p class="dx-note" data-dx-note aria-live="polite"></p>
+</div>
+
+<style is:global>
+  .dx {
+    background: var(--bg-2);
+  }
+  .dx-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .dx-query {
+    color: var(--ash);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: none;
+  }
+  .dx-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0.35rem 1.15rem 0.9rem;
+  }
+  .dx-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .dx-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .dx-slider input[type="range"] {
+    width: clamp(9rem, 22vw, 15rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+  .dx-res {
+    color: var(--smoke);
+    font-size: 0.62rem;
+  }
+
+  .dx-list {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0 1.15rem;
+  }
+  .dx-row {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: baseline;
+    background: var(--bg-3);
+    padding: 0.7rem 0.9rem;
+    transition: background 0.35s var(--ease);
+  }
+  .dx-row.is-top {
+    background: var(--heat);
+  }
+  .dx-rank {
+    font-size: 0.66rem;
+  }
+  .dx-body {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .dx-text {
+    font-size: 0.95rem;
+    color: var(--ash);
+    line-height: 1.5;
+  }
+  .dx-row.is-top .dx-text {
+    color: var(--bone);
+  }
+  .dx-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+  }
+  .dx-tag {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--smoke);
+  }
+  .dx-row.is-top .dx-tag {
+    color: var(--ember);
+  }
+  .dx-side {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: end;
+    white-space: nowrap;
+  }
+  .dx-bar-cell {
+    width: clamp(4rem, 10vw, 7rem);
+    height: 0.3rem;
+    background: var(--bg-2);
+    overflow: hidden;
+  }
+  .dx-bar-cell i {
+    display: block;
+    height: 100%;
+    background: var(--smoke);
+    transition: width 0.35s var(--ease);
+  }
+  .dx-row.is-top .dx-bar-cell i {
+    background: var(--ember);
+  }
+  .dx-score {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ash);
+  }
+  .dx-row.is-top .dx-score {
+    color: var(--bone);
+  }
+
+  .dx-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem 1.15rem 1rem;
+  }
+  .dx-metric {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+  }
+  .dx-metric-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 2.8vw, 1.9rem);
+    color: var(--bone);
+  }
+  .dx-metric-line {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.6;
+  }
+  .dx-metric-q {
+    color: var(--ash);
+    font-size: 0.9rem;
+  }
+
+  .dx-note {
+    padding: 0.5rem 1.15rem 1.15rem;
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  @media (max-width: 760px) {
+    .dx-metrics {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    .dx-row {
+      grid-template-columns: 2rem minmax(0, 1fr);
+    }
+    .dx-side {
+      grid-column: 2;
+      justify-items: start;
+      margin-top: 0.35rem;
+    }
+  }
+</style>
+
+<script>
+  const DIMS = 1536;
+  const BLOCK = 64;
+  const NBLOCKS = 24;
+
+  const makeRng = (seed: number) =>
+    function () {
+      seed |= 0;
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+  // One shared random direction per block, so shared blocks align and
+  // unrelated blocks stay roughly orthogonal.
+  const dirs: Float64Array[] = [];
+  const rng = makeRng(20260920);
+  for (let b = 0; b < NBLOCKS; b++) {
+    const dir = new Float64Array(BLOCK);
+    for (let i = 0; i < BLOCK; i++) dir[i] = rng() * 2 - 1;
+    let norm = 0;
+    for (const v of dir) norm += v * v;
+    norm = Math.sqrt(norm);
+    for (let i = 0; i < BLOCK; i++) dir[i] /= norm;
+    dirs.push(dir);
+  }
+
+  type Component = [block: number, weight: number];
+
+  const build = (components: Component[]) => {
+    const v = new Float64Array(DIMS);
+    for (const [b, w] of components) {
+      const dir = dirs[b];
+      for (let i = 0; i < BLOCK; i++) v[b * BLOCK + i] += w * dir[i];
+    }
+    return v;
+  };
+
+  // Block 0 is the shared topic. Blocks 1 to 4 are the distinctions.
+  // Blocks 8 to 19 are per-document detail that never helps the query.
+  const QUERY = build([
+    [0, 1.0],
+    [1, 0.55],
+    [2, 0.1],
+    [3, 0.18],
+  ]);
+
+  const DOCS = [
+    {
+      name: "A · PostgreSQL idle connection termination",
+      tag: "termination",
+      vec: build([
+        [0, 1.0],
+        [1, 0.55],
+        [8, 0.15],
+        [9, 0.12],
+        [10, 0.18],
+      ]),
+    },
+    {
+      name: "B · PostgreSQL connection pooling",
+      tag: "pooling",
+      vec: build([
+        [0, 1.0],
+        [2, 0.55],
+        [11, 0.15],
+        [12, 0.12],
+        [13, 0.18],
+      ]),
+    },
+    {
+      name: "C · PostgreSQL idle transaction timeout",
+      tag: "timeout",
+      vec: build([
+        [0, 1.0],
+        [3, 0.55],
+        [14, 0.15],
+        [15, 0.12],
+        [16, 0.18],
+      ]),
+    },
+    {
+      name: "D · MySQL connection termination",
+      tag: "mysql",
+      vec: build([
+        [0, 0.35],
+        [4, 0.6],
+        [17, 0.15],
+        [18, 0.12],
+        [19, 0.18],
+      ]),
+    },
+  ];
+
+  const cosine = (a: Float64Array, b: Float64Array, k: number) => {
+    let dot = 0;
+    let na = 0;
+    let nb = 0;
+    for (let i = 0; i < k; i++) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    const den = Math.sqrt(na) * Math.sqrt(nb);
+    return den === 0 ? 0 : dot / den;
+  };
+
+  const root = document.querySelector<HTMLElement>("[data-dx]");
+  if (root) {
+    const list = root.querySelector<HTMLElement>("[data-dx-list]")!;
+    const slider = root.querySelector<HTMLInputElement>("[data-dx-k]")!;
+    const kVal = root.querySelector<HTMLElement>("[data-dx-k-val]")!;
+    const res = root.querySelector<HTMLElement>("[data-dx-res]")!;
+    const note = root.querySelector<HTMLElement>("[data-dx-note]")!;
+    const out = {
+      top: root.querySelector<HTMLElement>("[data-dx-top]")!,
+      topLine: root.querySelector<HTMLElement>("[data-dx-top-line]")!,
+      spread: root.querySelector<HTMLElement>("[data-dx-spread]")!,
+      spreadLine: root.querySelector<HTMLElement>("[data-dx-spread-line]")!,
+      rank: root.querySelector<HTMLElement>("[data-dx-rank]")!,
+      rankLine: root.querySelector<HTMLElement>("[data-dx-rank-line]")!,
+    };
+
+    const fullOrder = [...DOCS]
+      .map((d) => ({ name: d.name, s: cosine(QUERY, d.vec, DIMS) }))
+      .sort((a, b) => b.s - a.s)
+      .map((d) => d.name);
+
+    const render = () => {
+      const k = Number(slider.value);
+      kVal.textContent = String(k);
+      res.textContent = `${Math.round((k / DIMS) * 100)}% of ${DIMS}`;
+
+      const scores = DOCS.map((d) => ({
+        ...d,
+        score: cosine(QUERY, d.vec, k),
+      })).sort((a, b) => b.score - a.score);
+
+      const spread = scores[0].score - scores[scores.length - 1].score;
+      const changed =
+        scores.map((d) => d.name).join("|") !== fullOrder.join("|");
+
+      list.innerHTML = scores
+        .map(
+          (d, i) => `
+        <li class="dx-row${i === 0 ? " is-top" : ""}">
+          <span class="dx-rank label">${String(i + 1).padStart(2, "0")}</span>
+          <span class="dx-body">
+            <span class="dx-text">${d.name}</span>
+            <span class="dx-meta"><span class="dx-tag">${d.tag}</span></span>
+          </span>
+          <span class="dx-side">
+            <span class="dx-bar-cell"><i style="width:${(d.score * 100).toFixed(1)}%"></i></span>
+            <span class="dx-score">${d.score.toFixed(3)}</span>
+          </span>
+        </li>`,
+        )
+        .join("");
+
+      out.top.textContent = scores[0].name.split(" · ")[0];
+      out.topLine.textContent = `${scores[0].name.split(" · ")[1]} at cosine ${scores[0].score.toFixed(3)}`;
+      out.spread.textContent = spread.toFixed(3);
+      out.spreadLine.textContent =
+        spread < 0.01
+          ? "top minus last; the list has collapsed"
+          : "top minus last cosine across the four documents";
+      out.rank.textContent = changed ? "changed" : "same";
+      out.rankLine.textContent = "compared to the full 1536-dimension order";
+
+      if (k >= 320) {
+        note.textContent =
+          "All four distinctions are still in the vector. The scores are spread out and the order matches what the query actually asks for.";
+      } else if (k >= 256) {
+        note.textContent =
+          "The MySQL block is gone, and D does not lose relevance: it gains it. With only the shared topic left on that side, the distance between D and the query disappears. A document about a different database now ranks second.";
+      } else if (k >= 192) {
+        note.textContent =
+          "The timeout block is gone. C falls back to the bare topic and ties with D, a document it should be clearly separated from. Two different concepts now look identical to the index.";
+      } else if (k >= 128) {
+        note.textContent =
+          "The pooling block is gone. B joins the tie: three documents share one point. Only A still carries a distinction, because its block survived the cut.";
+      } else {
+        note.textContent =
+          "Only the shared topic survives, and every document is a scalar multiple of it. All four cosines are 1.000: the index can no longer tell termination from pooling from a MySQL document. Nothing was deleted; the geometry that separated them is simply not in these 64 numbers.";
+      }
+    };
+
+    slider.addEventListener("input", render);
+    render();
+  }
+</script>
