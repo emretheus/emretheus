@@ -3,6 +3,8 @@
 **Full-stack engineer building autonomous AI agents & Web3 products.**
 Based in Berlin.
 
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-emretheus-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/emretheus)
+
 I design LLM-powered agents, local-first AI tools and crypto infrastructure —
 taking ideas from prototype to production.
 
@@ -19,7 +21,7 @@ taking ideas from prototype to production.
 | --- | --- |
 | [**BioAgents**](https://github.com/bio-xyz/BioAgents) | Multi-agent AI for autonomous research in the life sciences |
 | [**grex**](https://github.com/emretheus/grex) | One interface to run Claude, Codex, Cursor & Gemini agents in parallel |
-| [**jev-rag-benchmark**](https://github.com/emretheus/jev-rag-benchmark) | Free English RAG benchmark: does TypeSafe Jev 1.13 help? Frozen pools, calibration, paired CIs — $0 to reproduce |
+| [**jev-rag-benchmark**](https://github.com/emretheus/jev-rag-benchmark) | Free English RAG benchmark: does TypeSafe Jev 1.13 help? Frozen pools, calibration, paired CIs — $0 to reproduce · [live leaderboard on Hugging Face](https://huggingface.co/spaces/emretheus/jev-rag-benchmark-leaderboard) |
 | [**meetwit**](https://github.com/emretheus/meetwit) | Local-first AI meeting assistant with on-device transcription |
 | [**inclave**](https://github.com/emretheus/inclave) | Private, on-device AI over your local files (Ollama) |
 | [**claude-remind-mcp**](https://github.com/emretheus/claude-remind-mcp) | MCP server to search your Claude Code history |
@@ -31,6 +33,7 @@ taking ideas from prototype to production.
 ### Connect
 
 - Website — **[emretheus.xyz](https://emretheus.xyz)**
+- Hugging Face — [emretheus](https://huggingface.co/emretheus)
 - LinkedIn — [in/emre-ulgac](https://www.linkedin.com/in/emre-ulgac)
 - Email — [emretheus@proton.me](mailto:emretheus@proton.me)
 
