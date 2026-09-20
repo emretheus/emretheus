@@ -69,6 +69,16 @@ export const DISTILLATIONS: Distillation[] = [
     fields: ["retrieval", "ranking", "evaluation"],
     readingTime: "14 min",
   },
+  {
+    slug: "temperature",
+    title: "Temperature",
+    question:
+      "If you set temperature to 0, do you get the same answer every time?",
+    oneSentence:
+      "Temperature rescales the model's next-token probabilities — 0 means always take the most likely token, 1 means sample the model's own distribution — but absolute determinism is a property of the whole stack, not a dial.",
+    fields: ["llm", "sampling", "inference"],
+    readingTime: "15 min",
+  },
 ];
 
 /** Topics in the queue — visible, honest, not yet written. */

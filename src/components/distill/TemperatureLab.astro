@@ -1,0 +1,459 @@
+---
+// Temperature lab: logits → softmax(z/T) → sample.
+// A near-tie pair makes the determinism story visible: clean arithmetic at T=0
+// is greedy and repeatable; a tiny amount of arithmetic noise flips the argmax.
+---
+
+<div class="tl" data-tl>
+  <div class="tl-head">
+    <span class="label">Temperature lab · next-token distribution</span>
+    <div class="tl-actions">
+      <button class="control" type="button" data-tl-noise aria-pressed="false">
+        <span>Arithmetic noise ±0.02</span>
+      </button>
+      <button class="control" type="button" data-tl-run>
+        <span>Run 10 completions</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="tl-bar">
+    <label class="tl-slider">
+      <span class="label">Temperature <em data-tl-t-val>1.00</em></span>
+      <input
+        type="range"
+        min="0"
+        max="2"
+        step="0.05"
+        value="1"
+        data-tl-t
+      />
+    </label>
+    <span class="label tl-prompt"
+      >prompt · “The package will arrive in ___ business days.”</span
+    >
+  </div>
+
+  <ol class="tl-list" data-tl-list></ol>
+
+  <div class="tl-runs">
+    <span class="label">last 10 completions</span>
+    <div class="tl-strip" data-tl-strip></div>
+  </div>
+
+  <div class="tl-metrics">
+    <div class="tl-metric">
+      <span class="label tl-metric-name">Top token</span>
+      <span class="tl-metric-value" data-tl-top>—</span>
+      <span class="label tl-metric-line" data-tl-top-line></span>
+      <span class="tl-metric-q">What does the model want to say?</span>
+    </div>
+    <div class="tl-metric">
+      <span class="label tl-metric-name">Mode</span>
+      <span class="tl-metric-value" data-tl-mode>—</span>
+      <span class="label tl-metric-line" data-tl-mode-line></span>
+      <span class="tl-metric-q">Always the top token, or a draw?</span>
+    </div>
+    <div class="tl-metric">
+      <span class="label tl-metric-name">Last 10 runs</span>
+      <span class="tl-metric-value" data-tl-runs>—</span>
+      <span class="label tl-metric-line" data-tl-runs-line></span>
+      <span class="tl-metric-q">Same prompt, same settings — same answer?</span>
+    </div>
+  </div>
+
+  <p class="tl-note" data-tl-note aria-live="polite"></p>
+</div>
+
+<style is:global>
+  .tl {
+    background: var(--bg-2);
+  }
+  .tl-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .tl-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .tl-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0.35rem 1.15rem 0.9rem;
+  }
+  .tl-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .tl-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .tl-slider input[type="range"] {
+    width: clamp(7rem, 16vw, 11rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+  .tl-prompt {
+    color: var(--ash);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: none;
+  }
+
+  .tl-list {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0 1.15rem;
+  }
+  .tl-row {
+    display: grid;
+    grid-template-columns: 2rem 6rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.55rem 0.6rem;
+    background: var(--bg-3);
+    transition: background 0.35s var(--ease);
+  }
+  .tl-row.is-top {
+    background: var(--heat);
+  }
+  .tl-rank {
+    font-size: 0.66rem;
+  }
+  .tl-token {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--ash);
+  }
+  .tl-row.is-top .tl-token {
+    color: var(--bone);
+  }
+  .tl-bar-cell {
+    height: 0.55rem;
+    background: var(--bg-2);
+    overflow: hidden;
+  }
+  .tl-bar-cell i {
+    display: block;
+    height: 100%;
+    background: var(--smoke);
+    transition: width 0.35s var(--ease);
+  }
+  .tl-row.is-top .tl-bar-cell i {
+    background: var(--ember);
+  }
+  .tl-scores {
+    display: flex;
+    gap: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+  .tl-z {
+    color: var(--smoke);
+  }
+  .tl-p {
+    color: var(--ash);
+    min-width: 3.6rem;
+    text-align: right;
+  }
+  .tl-row.is-top .tl-p {
+    color: var(--ember);
+  }
+
+  .tl-runs {
+    display: grid;
+    gap: 0.6rem;
+    padding: 1.1rem 1.15rem 0.35rem;
+  }
+  .tl-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .tl-chip {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-3);
+    color: var(--smoke);
+  }
+  .tl-chip.is-a {
+    color: var(--ash);
+  }
+  .tl-chip.is-b {
+    color: var(--ember);
+  }
+  .tl-chip.is-empty {
+    opacity: 0.35;
+  }
+
+  .tl-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.35rem 1.15rem 1rem;
+  }
+  .tl-metric {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+  }
+  .tl-metric-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 2.8vw, 1.9rem);
+    color: var(--bone);
+  }
+  .tl-metric-line {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.6;
+  }
+  .tl-metric-q {
+    color: var(--ash);
+    font-size: 0.9rem;
+  }
+
+  .tl-note {
+    padding: 0.5rem 1.15rem 1.15rem;
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  @media (max-width: 760px) {
+    .tl-metrics {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    .tl-row {
+      grid-template-columns: 2rem 5rem minmax(0, 1fr);
+    }
+    .tl-scores {
+      grid-column: 3;
+    }
+  }
+</style>
+
+<script>
+  interface Candidate {
+    token: string;
+    /** raw logit for the next token, before any temperature is applied */
+    z: number;
+  }
+
+  // A deliberate near-tie: the top two logits differ by 0.005.
+  const DOCS: Candidate[] = [
+    { token: " three", z: 3.405 },
+    { token: " four", z: 3.4 },
+    { token: " two", z: 3.05 },
+    { token: " five", z: 2.8 },
+    { token: " a", z: 1.1 },
+    { token: " the", z: 0.7 },
+  ];
+
+  const NOISE = 0.02;
+  const GREEDY_T = 0.001;
+
+  const softmax = (logits: number[]) => {
+    const max = Math.max(...logits);
+    const exps = logits.map((z) => Math.exp(z - max));
+    const sum = exps.reduce((a, b) => a + b, 0);
+    return exps.map((e) => e / sum);
+  };
+
+  const root = document.querySelector<HTMLElement>("[data-tl]");
+  if (root) {
+    const list = root.querySelector<HTMLElement>("[data-tl-list]")!;
+    const slider = root.querySelector<HTMLInputElement>("[data-tl-t]")!;
+    const tVal = root.querySelector<HTMLElement>("[data-tl-t-val]")!;
+    const noiseBtn = root.querySelector<HTMLButtonElement>("[data-tl-noise]")!;
+    const runBtn = root.querySelector<HTMLButtonElement>("[data-tl-run]")!;
+    const strip = root.querySelector<HTMLElement>("[data-tl-strip]")!;
+    const note = root.querySelector<HTMLElement>("[data-tl-note]")!;
+    const out = {
+      top: root.querySelector<HTMLElement>("[data-tl-top]")!,
+      topLine: root.querySelector<HTMLElement>("[data-tl-top-line]")!,
+      mode: root.querySelector<HTMLElement>("[data-tl-mode]")!,
+      modeLine: root.querySelector<HTMLElement>("[data-tl-mode-line]")!,
+      runs: root.querySelector<HTMLElement>("[data-tl-runs]")!,
+      runsLine: root.querySelector<HTMLElement>("[data-tl-runs-line]")!,
+    };
+
+    let noisy = false;
+    let history: string[] = [];
+
+    const temperature = () => Number(slider.value);
+    const isGreedy = () => temperature() <= GREEDY_T;
+
+    const distribution = () => {
+      const t = temperature();
+      if (isGreedy()) {
+        const top = DOCS.reduce((a, b) => (b.z > a.z ? b : a));
+        return DOCS.map((d) => (d.token === top.token ? 1 : 0));
+      }
+      return softmax(DOCS.map((d) => d.z / t));
+    };
+
+    const draw = () => {
+      const logits = DOCS.map(
+        (d) => d.z + (noisy ? (Math.random() * 2 - 1) * NOISE : 0),
+      );
+      if (isGreedy()) {
+        let best = 0;
+        logits.forEach((z, i) => {
+          if (z > logits[best]) best = i;
+        });
+        return DOCS[best].token;
+      }
+      const t = temperature();
+      const probs = softmax(logits.map((z) => z / t));
+      let r = Math.random();
+      for (let i = 0; i < probs.length; i++) {
+        r -= probs[i];
+        if (r <= 0) return DOCS[i].token;
+      }
+      return DOCS[DOCS.length - 1].token;
+    };
+
+    const renderStrip = () => {
+      const chips: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        const token = history[i];
+        if (token === undefined) {
+          chips.push(`<span class="tl-chip is-empty">—</span>`);
+        } else {
+          const cls = token === DOCS[0].token ? "is-a" : "is-b";
+          chips.push(
+            `<span class="tl-chip ${cls}">${token.trim()}</span>`,
+          );
+        }
+      }
+      strip.innerHTML = chips.join("");
+    };
+
+    const renderRuns = () => {
+      if (history.length === 0) {
+        out.runs.textContent = "—";
+        out.runsLine.textContent = "press “Run 10 completions”";
+        return;
+      }
+      const counts = new Map<string, number>();
+      history.forEach((t) => counts.set(t, (counts.get(t) ?? 0) + 1));
+      const parts = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([token, n]) => `${n} × ${token.trim()}`);
+      out.runs.textContent = parts.join(" · ");
+      out.runsLine.textContent =
+        counts.size === 1
+          ? `${history.length} runs, one distinct token`
+          : `${history.length} runs, ${counts.size} distinct tokens`;
+    };
+
+    const render = () => {
+      const t = temperature();
+      tVal.textContent = t.toFixed(2);
+      const probs = distribution();
+      const order = DOCS.map((d, i) => ({ ...d, p: probs[i] })).sort(
+        (a, b) => b.p - a.p,
+      );
+      const top = order[0];
+
+      list.innerHTML = order
+        .map(
+          (d, i) => `
+        <li class="tl-row${i === 0 ? " is-top" : ""}">
+          <span class="tl-rank label">${String(i + 1).padStart(2, "0")}</span>
+          <span class="tl-token">“${d.token.trim()}”</span>
+          <span class="tl-bar-cell"><i style="width:${(d.p * 100).toFixed(1)}%"></i></span>
+          <span class="tl-scores">
+            <span class="tl-z">z ${d.z.toFixed(3)}</span>
+            <span class="tl-p">${(d.p * 100).toFixed(1)}%</span>
+          </span>
+        </li>`,
+        )
+        .join("");
+
+      out.top.textContent = `“${top.token.trim()}”`;
+      out.topLine.textContent = isGreedy()
+        ? `logit ${top.z.toFixed(3)} · p 100% — argmax`
+        : `logit ${top.z.toFixed(3)} · p ${(top.p * 100).toFixed(1)}% at T = ${t.toFixed(2)}`;
+      out.mode.textContent = isGreedy() ? "greedy" : "sampling";
+      out.modeLine.textContent = isGreedy()
+        ? "T = 0 → always the most likely token"
+        : t < 1
+          ? "T < 1 → the top token wins more often"
+          : t > 1
+            ? "T > 1 → the distribution is flattened"
+            : "T = 1 → the model's own distribution";
+
+      if (isGreedy() && noisy) {
+        note.textContent =
+          "Same prompt, same temperature, same seed — and the answer still flips. The top two logits differ by 0.005; the arithmetic noise is larger, so the argmax moves. This is what “determinism is not guaranteed” means in practice.";
+      } else if (isGreedy()) {
+        note.textContent =
+          "Greedy decoding with clean arithmetic: the sampler always takes the most likely token, so every run returns the same answer. On paper — and only on paper — temperature 0 is deterministic.";
+      } else if (t < 1) {
+        note.textContent =
+          "Sharpened: dividing by T < 1 widens the gap between logits, so the top token wins more often. Sampling never disappears, so repeated calls can still differ — especially in a near-tie like this one.";
+      } else if (t > 1) {
+        note.textContent =
+          "Flattened: at T > 1 unlikely tokens become plausible. Notice the tail — “a” and “the” stop being negligible. This is useful for brainstorming and dangerous for extraction.";
+      } else {
+        note.textContent =
+          "T = 1 is not maximum randomness. It is the distribution the model actually learned — which is why most providers treat 1 as the default. Turning it down concentrates that distribution; turning it up flattens it.";
+      }
+
+      if (history.length > 0) {
+        const counts = new Set(history);
+        if (counts.size > 1) {
+          note.textContent +=
+            " The last runs returned more than one token: identical requests, different outputs.";
+        }
+      }
+    };
+
+    slider.addEventListener("input", () => {
+      history = [];
+      renderStrip();
+      renderRuns();
+      render();
+    });
+
+    noiseBtn.addEventListener("click", () => {
+      noisy = !noisy;
+      noiseBtn.setAttribute("aria-pressed", String(noisy));
+      history = [];
+      renderStrip();
+      renderRuns();
+      render();
+    });
+
+    runBtn.addEventListener("click", () => {
+      for (let i = 0; i < 10; i++) {
+        history.push(draw());
+        if (history.length > 10) history.shift();
+      }
+      renderStrip();
+      renderRuns();
+      render();
+    });
+
+    renderStrip();
+    renderRuns();
+    render();
+  }
+</script>
