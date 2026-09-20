@@ -1,0 +1,443 @@
+---
+// Jev lab: the model returns a calibrated probability per candidate.
+// The threshold decides who gets reranked, who falls back to hybrid order,
+// and whether generation runs at all.
+---
+
+<div class="jl" data-jl>
+  <div class="jl-head">
+    <span class="label">Jev lab · 8 candidates, one query</span>
+    <button class="control" type="button" data-jl-reset>
+      <span>Reset</span>
+    </button>
+  </div>
+
+  <div class="jl-bar">
+    <label class="jl-slider">
+      <span class="label">Threshold <em data-jl-t-val>0.55</em></span>
+      <input
+        type="range"
+        min="0.05"
+        max="0.95"
+        step="0.05"
+        value="0.55"
+        data-jl-t
+      />
+    </label>
+    <span class="label jl-query"
+      >query · “Does vitamin D supplementation reduce respiratory
+      infections?”</span
+    >
+  </div>
+
+  <p class="label jl-count" data-jl-count></p>
+
+  <ol class="jl-list" data-jl-list></ol>
+
+  <div class="jl-metrics">
+    <div class="jl-metric">
+      <span class="label jl-metric-name">nDCG@5</span>
+      <span class="jl-metric-value" data-jl-ndcg>—</span>
+      <span class="label jl-metric-line" data-jl-ndcg-line></span>
+      <span class="jl-metric-q">How well is the list ordered?</span>
+    </div>
+    <div class="jl-metric">
+      <span class="label jl-metric-name">Answers in top 2</span>
+      <span class="jl-metric-value" data-jl-top2>—</span>
+      <span class="label jl-metric-line" data-jl-top2-line></span>
+      <span class="jl-metric-q">Is the top of the list defensible?</span>
+    </div>
+    <div class="jl-metric">
+      <span class="label jl-metric-name">Generation</span>
+      <span class="jl-metric-value" data-jl-gen>—</span>
+      <span class="label jl-metric-line" data-jl-gen-line></span>
+      <span class="jl-metric-q">Do you pay for a weak answer?</span>
+    </div>
+  </div>
+
+  <p class="jl-note" data-jl-note aria-live="polite"></p>
+</div>
+
+<style is:global>
+  .jl {
+    background: var(--bg-2);
+  }
+  .jl-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .jl-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0.35rem 1.15rem 0.5rem;
+  }
+  .jl-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .jl-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .jl-slider input[type="range"] {
+    width: clamp(7rem, 16vw, 11rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+  .jl-query {
+    color: var(--ash);
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: none;
+  }
+  .jl-count {
+    padding: 0 1.15rem 0.75rem;
+    color: var(--smoke);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+  }
+
+  .jl-list {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0 1.15rem;
+  }
+  .jl-row {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: baseline;
+    background: var(--bg-3);
+    padding: 0.75rem 0.9rem;
+    transition: background 0.4s var(--ease), box-shadow 0.4s var(--ease);
+  }
+  .jl-row.is-kept {
+    box-shadow: inset 2px 0 0 var(--ember);
+  }
+  .jl-row.is-top {
+    background: var(--heat);
+  }
+  .jl-rank {
+    font-size: 0.66rem;
+  }
+  .jl-body {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .jl-text {
+    font-size: 0.95rem;
+    color: var(--ash);
+    line-height: 1.5;
+  }
+  .jl-row.is-top .jl-text {
+    color: var(--bone);
+  }
+  .jl-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+  }
+  .jl-grade,
+  .jl-tag {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .jl-grade {
+    color: var(--smoke);
+  }
+  .jl-grade[data-g="2"] {
+    color: var(--ember);
+  }
+  .jl-tag {
+    color: var(--smoke);
+  }
+  .jl-row.is-kept .jl-tag {
+    color: var(--ash);
+  }
+
+  .jl-side {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: end;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+  .jl-pbar {
+    width: clamp(4rem, 10vw, 7rem);
+    height: 0.3rem;
+    background: var(--bg-2);
+    overflow: hidden;
+  }
+  .jl-pbar i {
+    display: block;
+    height: 100%;
+    background: var(--smoke);
+    transition: width 0.4s var(--ease);
+  }
+  .jl-row.is-kept .jl-pbar i {
+    background: var(--ember);
+  }
+  .jl-p {
+    color: var(--ash);
+  }
+  .jl-row.is-top .jl-p {
+    color: var(--bone);
+  }
+  .jl-h {
+    color: var(--smoke);
+    font-size: 0.66rem;
+  }
+
+  .jl-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem 1.15rem 1rem;
+  }
+  .jl-metric {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+  }
+  .jl-metric-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    color: var(--bone);
+  }
+  .jl-metric-line {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.6;
+  }
+  .jl-metric-q {
+    color: var(--ash);
+    font-size: 0.9rem;
+  }
+
+  .jl-note {
+    padding: 0.5rem 1.15rem 1.15rem;
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  @media (max-width: 760px) {
+    .jl-metrics {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    .jl-row {
+      grid-template-columns: 2rem minmax(0, 1fr);
+    }
+    .jl-side {
+      grid-column: 2;
+      justify-items: start;
+      margin-top: 0.35rem;
+    }
+  }
+</style>
+
+<script>
+  interface Candidate {
+    id: string;
+    text: string;
+    /** 2 = answers the question, 1 = mentions the topic, 0 = unrelated */
+    grade: number;
+    /** hybrid retrieval score — decides the fallback order */
+    hybrid: number;
+    /** calibrated probability that this passage answers the question */
+    p: number;
+  }
+
+  const DOCS: Candidate[] = [
+    {
+      id: "D1",
+      text: "Vitamin D supplementation reduced the incidence of respiratory infections (RR 0.89).",
+      grade: 2,
+      hybrid: 0.79,
+      p: 0.93,
+    },
+    {
+      id: "D2",
+      text: "Vitamin D plays a role in immune function and bone metabolism.",
+      grade: 1,
+      hybrid: 0.91,
+      p: 0.68,
+    },
+    {
+      id: "D3",
+      text: "Respiratory infections were a secondary endpoint, assessed weekly.",
+      grade: 1,
+      hybrid: 0.84,
+      p: 0.55,
+    },
+    {
+      id: "D4",
+      text: "The trial enrolled 1,200 adults during the winter months.",
+      grade: 0,
+      hybrid: 0.66,
+      p: 0.1,
+    },
+    {
+      id: "D5",
+      text: "No significant difference in infection rates was observed between groups.",
+      grade: 2,
+      hybrid: 0.76,
+      p: 0.88,
+    },
+    {
+      id: "D6",
+      text: "Vitamin C supplementation showed no effect on the common cold.",
+      grade: 0,
+      hybrid: 0.88,
+      p: 0.52,
+    },
+    {
+      id: "D7",
+      text: "Adverse events were mild and mostly gastrointestinal.",
+      grade: 0,
+      hybrid: 0.58,
+      p: 0.07,
+    },
+    {
+      id: "D8",
+      text: "The supplement was taken daily at 2000 IU.",
+      grade: 0,
+      hybrid: 0.61,
+      p: 0.05,
+    },
+  ];
+
+  const GRADE_LABEL = ["unrelated", "mentions", "answers"];
+  const K = 5;
+
+  const gain = (g: number) => Math.pow(2, g) - 1;
+  const discount = (position: number) => Math.log2(position + 2);
+
+  const idealGains = [...DOCS]
+    .map((d) => d.grade)
+    .sort((a, b) => b - a)
+    .slice(0, K);
+  const IDCG = idealGains.reduce(
+    (sum, g, i) => sum + gain(g) / discount(i),
+    0,
+  );
+
+  const baselineOrder = [...DOCS].sort((a, b) => b.hybrid - a.hybrid);
+  const BASELINE_NDCG =
+    baselineOrder
+      .slice(0, K)
+      .reduce((sum, d, i) => sum + gain(d.grade) / discount(i), 0) / IDCG;
+
+  const root = document.querySelector<HTMLElement>("[data-jl]");
+  if (root) {
+    const list = root.querySelector<HTMLElement>("[data-jl-list]")!;
+    const slider = root.querySelector<HTMLInputElement>("[data-jl-t]")!;
+    const tVal = root.querySelector<HTMLElement>("[data-jl-t-val]")!;
+    const count = root.querySelector<HTMLElement>("[data-jl-count]")!;
+    const reset = root.querySelector<HTMLButtonElement>("[data-jl-reset]")!;
+    const note = root.querySelector<HTMLElement>("[data-jl-note]")!;
+    const out = {
+      ndcg: root.querySelector<HTMLElement>("[data-jl-ndcg]")!,
+      ndcgLine: root.querySelector<HTMLElement>("[data-jl-ndcg-line]")!,
+      top2: root.querySelector<HTMLElement>("[data-jl-top2]")!,
+      top2Line: root.querySelector<HTMLElement>("[data-jl-top2-line]")!,
+      gen: root.querySelector<HTMLElement>("[data-jl-gen]")!,
+      genLine: root.querySelector<HTMLElement>("[data-jl-gen-line]")!,
+    };
+
+    const render = () => {
+      const t = Number(slider.value);
+      tVal.textContent = t.toFixed(2);
+
+      const kept = DOCS.filter((d) => d.p >= t).sort((a, b) => b.p - a.p);
+      const keptIds = new Set(kept.map((d) => d.id));
+      const fallback = DOCS.filter((d) => !keptIds.has(d.id)).sort(
+        (a, b) => b.hybrid - a.hybrid,
+      );
+      const order = [...kept, ...fallback];
+      const abstain = kept.length === 0;
+
+      const dcg = order
+        .slice(0, K)
+        .reduce((sum, d, i) => sum + gain(d.grade) / discount(i), 0);
+      const ndcg = IDCG === 0 ? 0 : dcg / IDCG;
+      const answersInTop2 = order
+        .slice(0, 2)
+        .filter((d) => d.grade === 2).length;
+
+      list.innerHTML = order
+        .map(
+          (d, i) => `
+        <li class="jl-row${keptIds.has(d.id) ? " is-kept" : ""}${i === 0 ? " is-top" : ""}">
+          <span class="jl-rank label">${String(i + 1).padStart(2, "0")}</span>
+          <span class="jl-body">
+            <span class="jl-text">${d.text}</span>
+            <span class="jl-meta">
+              <span class="jl-grade" data-g="${d.grade}">${GRADE_LABEL[d.grade]}</span>
+              <span class="jl-tag">${keptIds.has(d.id) ? "decided by Jev" : "passed through"}</span>
+            </span>
+          </span>
+          <span class="jl-side">
+            <span class="jl-pbar"><i style="width:${Math.round(d.p * 100)}%"></i></span>
+            <span class="jl-p">p ${d.p.toFixed(2)}</span>
+            <span class="jl-h">hybrid ${d.hybrid.toFixed(2)}</span>
+          </span>
+        </li>`,
+        )
+        .join("");
+
+      count.textContent = `decided by Jev: ${kept.length} of ${DOCS.length} · passed through untouched: ${DOCS.length - kept.length}`;
+
+      out.ndcg.textContent = ndcg.toFixed(2);
+      out.ndcgLine.textContent = `DCG ${dcg.toFixed(2)} ÷ ideal ${IDCG.toFixed(2)} · baseline hybrid order ${BASELINE_NDCG.toFixed(2)}`;
+      out.top2.textContent = `${answersInTop2} / 2`;
+      out.top2Line.textContent =
+        answersInTop2 === 2
+          ? "both passages that answer the question are in the top two"
+          : "one of the two passages that answer the question is still buried";
+      out.gen.textContent = abstain ? "skipped" : "called";
+      out.genLine.textContent = abstain
+        ? `nothing reached p ≥ ${t.toFixed(2)} — no answer generated`
+        : `top p ${order[0].p.toFixed(2)} ≥ ${t.toFixed(2)} — one generation call`;
+
+      if (abstain) {
+        note.textContent =
+          "At this threshold nothing is confident enough to act on. A gated pipeline skips generation and says “no confident answer” — cheaper than a weak answer, but only honest if the threshold is right for the domain.";
+      } else if (t > 0.88) {
+        note.textContent =
+          "Very high threshold: only the most confident passage is reranked. The negative result — that infections did not drop — falls back into hybrid order and sits under a background sentence. Gating can be too strict.";
+      } else if (t > 0.68) {
+        note.textContent =
+          "The sweet spot: both passages that answer the question are on top, and only the two candidates the model was sure about needed a decision. Everything else passed through in hybrid order.";
+      } else if (t > 0.52) {
+        note.textContent =
+          "The model now also decides a background sentence it rated just above the threshold. Harmless at rank 3 — but every kept candidate is context the generator has to read.";
+      } else if (t > 0.1) {
+        note.textContent =
+          "At this threshold the model also decides a passage it rates barely above a coin flip — an unrelated vitamin C study, now marked as kept. Low thresholds quietly turn a decision layer into an always-on reranker.";
+      } else {
+        note.textContent =
+          "Even unrelated passages clear the bar now. The model is being asked questions it already answered “no” to — the decision layer is adding cost, not judgment.";
+      }
+    };
+
+    slider.addEventListener("input", render);
+    reset.addEventListener("click", () => {
+      slider.value = "0.55";
+      render();
+    });
+    render();
+  }
+</script>

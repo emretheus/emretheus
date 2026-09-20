@@ -59,6 +59,16 @@ export const DISTILLATIONS: Distillation[] = [
     fields: ["evaluation", "retrieval"],
     readingTime: "15 min",
   },
+  {
+    slug: "jev",
+    title: "Jev",
+    question:
+      "What if a model answered with a decision and a probability — instead of a paragraph?",
+    oneSentence:
+      "Jev is a System One model that returns typed decisions with calibrated probabilities — turning “which passages should reach the model?” into a policy you can measure.",
+    fields: ["retrieval", "ranking", "evaluation"],
+    readingTime: "14 min",
+  },
 ];
 
 /** Topics in the queue — visible, honest, not yet written. */

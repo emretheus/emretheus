@@ -1,0 +1,121 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Jev"
+question: "What if a model answered with a decision and a probability — instead of a paragraph?"
+oneSentence: "Jev is a System One model that returns typed decisions with calibrated probabilities — turning “which passages should reach the model?” into a policy you can measure."
+fields: ["retrieval", "ranking", "evaluation"]
+readingTime: "14 min"
+slug: "jev"
+description: "Jev explained simply: a System One model that returns typed decisions with calibrated probabilities for RAG. How it reranks candidates, why calibration enables confidence-gated decisions, and how a $0 benchmark tests whether it actually improves your system."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import JevLab from "../../components/distill/JevLab.astro";
+
+<Section n="02" label="The intuition" title="A decision, not a paragraph.">
+
+Most models in a RAG pipeline are asked to produce prose: a retriever returns a list, a generator writes an answer. Between them sits a much narrower question — **does this passage actually answer the question?** — and almost nobody asks a model directly.
+
+Jev does. TypeSafe's Jev 1.13 is a small “System One” model: given a question and one candidate passage, it returns a typed decision — not a paragraph, not a similarity score — a verdict with a probability attached. A free open-weights lookalike, OpenJev, is built for the same job, which makes the two comparable.
+
+The difference between a score and a decision matters. A <Term def="A model that reads two texts together — query and document — and outputs a single relevance score. Slower, because nothing can be precomputed.">cross-encoder</Term> score orders candidates well, but “0.81” means little on its own — not comparable across queries, not comparable across models. A calibrated probability can be compared to a threshold. That turns ranking into a policy you can write down.
+
+<Figure caption="Drag the threshold. Jev decides the confident candidates; the rest keep their hybrid order.">
+  <JevLab />
+</Figure>
+
+Nothing moves when the threshold is high — the model only touches candidates it is sure about. Lower it and the model takes over more of the list. Lower it further and it starts deciding passages it already rated as noise. A decision layer is a dial, not a switch.
+
+</Section>
+
+<Section n="03" label="The math" title="Calibration is a promise about being right.">
+
+A probability is useful only if it means something. Saying “p = 0.8” is a promise: among all decisions rated 0.8, roughly eight in ten should be correct. A model that keeps that promise is **calibrated**; one that does not is just emitting a ranking with extra decimals.
+
+Calibration is measured against outcomes, not vibes. In the benchmark's free-clone analysis, candidate probabilities on XQuAD scored ECE 0.0245 (2.5%) and Brier 0.0086 — and at p ≥ 0.5, precision was 94.9% against a base rate of about 5%. That is what makes a threshold meaningful: a number you can lean on.
+
+<MathOnly>
+
+Two calibrated operations replace “rerank everything”:
+
+- `decide(d) = 1[p(d) ≥ t]`
+- `order = sort({d : p(d) ≥ t}, by p desc) ++ sort({d : p(d) < t}, original order)`
+
+Generation is gated the same way. For `N` queries, calls scale with the probability that the best candidate clears the threshold:
+
+`calls = N · P(max p ≥ t)`
+
+Expected calibration error bins predictions and compares each bin's confidence with its observed accuracy:
+
+`ECE = Σ_b (n_b / n) · |accuracy(b) − confidence(b)|`
+
+In the benchmark, the same model's ECE rose from 0.0245 on XQuAD to 0.0906 on SciFact — the promise is domain-dependent. One threshold does not transfer between corpora.
+
+</MathOnly>
+
+<Deeper>
+
+The threshold itself is not a property of the model — it is a policy. It depends on the base rate of the corpus: in a collection where 5% of passages are relevant, p ≥ 0.5 behaves very differently than in one where 40% are. The right threshold is chosen, documented and re-validated per domain, and the only way to know is to measure.
+
+This is also why gating pays: it is not a smarter ranking, it is refusing to spend a generation call on a weak candidate. In the benchmark, answerability gating removed 31% of generation calls while *raising* answer F1 from 31.9% to 33.0%.
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="Where the decision layer sits.">
+
+<Figure caption="Focus a step. The decision layer is one box — but it is the one that decides what the generator ever sees.">
+  <Pipeline
+    steps={[
+      { label: "Query", detail: "One question, and a corpus that cannot be scanned exhaustively. Everything starts with cheap recall." },
+      { label: "BM25 + embeddings", detail: "Two retrievers with different blind spots: exact words and identifiers on one side, meaning on the other." },
+      { label: "RRF → frozen top-20", detail: "The lists are fused by rank, then cut to a shortlist. In the benchmark this pool is frozen: every method is compared on the identical candidates." },
+      { label: "Jev decides", detail: "One request per query, one yes/no question per candidate — does this passage answer it? — returning a probability for each. The free clone and a classic cross-encoder run as comparison branches." },
+      { label: "Confidence gate", detail: "Candidates with p ≥ t keep the model's order; the rest fall back to hybrid order. If nothing clears the threshold, generation is skipped entirely." },
+      { label: "Top-5 → answer", detail: "A smaller, more defensible context for the generator — or an honest refusal instead of a weak answer." },
+    ]}
+    groups={[
+      { label: "Cheap recall", detail: "Two fast retrievers, fused by rank. The goal is coverage: the right passage has to be in the pool before any model can judge it.", steps: [0, 1, 2] },
+      { label: "The decision layer", detail: "The model's job is narrow: verdicts with probabilities. The gate turns those probabilities into a policy — what to trust, what to leave alone, when to stop.", steps: [3, 4] },
+      { label: "Small final set", detail: "Fewer candidates reaching the generator means cheaper calls, less noise and a context a person could actually read.", steps: [5] },
+    ]}
+  />
+</Figure>
+
+The benchmark's question is not “is Jev good?” but **does the model actually improve the system?** Four branches, identical frozen candidates, 1,490 queries, nDCG@10:
+
+| Branch | Method | XQuAD-EN | SciFact |
+| --- | --- | --- | --- |
+| A | no reranker — hybrid order (baseline) | 98.11 | 71.67 |
+| J | OpenJev 0.1 — free, open weights | 98.03 | 63.92 |
+| N | NVIDIA cross-encoder | 99.37 | 78.70 |
+| T | TypeSafe Jev 1.13 | 98.93 | 79.29 |
+
+- **Jev helps, measurably.** +0.82 nDCG points over baseline on XQuAD (95% CI +0.35 to +1.31) and +7.62 on SciFact (CI +4.88 to +10.38).
+- **The free clone is not a substitute.** OpenJev was flat on XQuAD and *harmed* ranking on SciFact by 7.75 points. Same approach, different model.
+- **Against a trained cross-encoder, a tie on SciFact.** +0.59 points with a CI crossing zero, while NVIDIA led XQuAD by 0.45 points. A decision interface is not an automatic win.
+- **Calibration is the sleeper feature.** Confidence-gated reranking added +0.66 points over baseline on XQuAD, and answerability gating cut generation calls by 31% while improving answer F1.
+- **Every number cost $0.** Free tiers only, so anyone can re-run it.
+
+Read the [full case study](/systems/jev-rag-benchmark/) or open the [live leaderboard on Hugging Face](https://huggingface.co/spaces/emretheus/jev-rag-benchmark-leaderboard).
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="The honest part is the benchmark.">
+
+- **The free clone is a trap.** It looks like the same idea, and it produces confident probabilities — it just does not improve retrieval. Testing the *brand* instead of the *model* would have shipped a regression.
+- **Latency arrives with the decision.** In the published run, batch decisions took about 4 seconds at the median per query — an artifact of free-tier pacing; a single request answered in 0.6s. For interactive search, a 4-second reranker is not shippable. Publish latency with its conditions or it is misinformation.
+- **The threshold is a policy, not a truth.** `t = 0.5` is a default. It depends on the base rate of your corpus, and copying it into a new domain is a guess until you measure.
+- **Hosted models retire.** Three NVIDIA models were retired mid-project and had to be replaced. Pin versions, record every resolved model, or your benchmark stops being reproducible.
+- **Ceilings are findings too.** On XQuAD the baseline was already at 98.1% — a benchmark where nothing can be won can only measure noise. A decision layer shines where recall is good but ordering is bad, not everywhere.
+- **The evaluation tax.** Frozen candidate pools, paired bootstrap confidence intervals, negative results kept, exploratory analyses labelled — a benchmark nobody can re-run is a blog post.
+
+The real product of a benchmark is not “the model is good”. It is a map: where the decision layer helps, where it does not, and what it must never be used for.
+
+</Section>
