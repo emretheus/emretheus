@@ -19,6 +19,15 @@ export const SYSTEMS: SystemEntry[] = [
     status: "case study",
   },
   {
+    name: "Jev RAG Benchmark",
+    oneLiner:
+      "A free English benchmark that asks whether TypeSafe's Jev 1.13 actually improves a RAG pipeline — frozen candidate pools, calibration, paired confidence intervals, and the runs where the answer was no.",
+    domains: ["evaluation", "retrieval", "LLM systems"],
+    href: "/systems/jev-rag-benchmark/",
+    repo: "https://github.com/emretheus/jev-rag-benchmark",
+    status: "case study",
+  },
+  {
     name: "meetwit",
     oneLiner:
       "A meeting assistant that transcribes on your machine and answers from your documents — nothing leaves the device.",

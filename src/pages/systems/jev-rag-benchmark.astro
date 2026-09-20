@@ -1,0 +1,502 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  headline:
+    "Jev RAG Benchmark: does TypeSafe Jev 1.13 actually improve a RAG pipeline?",
+  description:
+    "A free English benchmark of TypeSafe Jev 1.13 as a reranking and decision layer in RAG — frozen candidate pools, calibration analysis, paired confidence intervals, and honest negative results.",
+  about: [
+    "Jev 1.13",
+    "Retrieval-augmented generation",
+    "Reranking",
+    "Model calibration",
+    "Benchmarking",
+  ],
+  author: { "@type": "Person", name: "Emre Ulgac", url: "https://emretheus.xyz" },
+  datePublished: "2026-09-20",
+  inLanguage: "en",
+  mainEntityOfPage: "https://emretheus.xyz/systems/jev-rag-benchmark/",
+  codeRepository: "https://github.com/emretheus/jev-rag-benchmark",
+};
+
+const decisions = [
+  {
+    id: "D1",
+    title: "A free stack, or a more reproducible one?",
+    context:
+      "A benchmark nobody can afford to re-run is a blog post. Reranking evaluations burn tokens on every method you compare.",
+    options:
+      "Paid APIs on OpenRouter · local models on a laptop · free tiers of hosted models",
+    choice:
+      "Free tiers only: Codiv for the open model, NVIDIA NIM for embeddings and the cross-encoder, the Vercel AI Gateway free tier for the real Jev.",
+    why:
+      "Every published number can be reproduced by anyone with an account, no budget approval. The whole benchmark cost $0 across 1,490 queries and four methods.",
+    cost:
+      "Model churn. Three NVIDIA models were retired mid-project and had to be replaced; each swap is recorded in the run manifest so results stay attributable.",
+  },
+  {
+    id: "D2",
+    title: "A RAG framework, or a harness of my own?",
+    context:
+      "Reranking comparisons are easy to run in LlamaIndex or LangChain — and easy to contaminate with their prompt wrappers, parsers and batching.",
+    options: "Adopt a framework · build a thin harness · fork an existing benchmark",
+    choice:
+      "A framework-neutral harness with three runtime dependencies (httpx, numpy, PyYAML).",
+    why:
+      "A benchmark should measure models, not wrappers. Fewer layers also means clean latency numbers — and latency is a headline claim for System One models.",
+    cost:
+      "The glue has to be written and tested: BM25, reciprocal rank fusion, metrics, calibration, export. That work is the repo.",
+  },
+  {
+    id: "D3",
+    title: "How to keep the comparison honest",
+    context:
+      "If retrieval re-runs between methods, a lucky or unlucky draw gets published as a model difference.",
+    options: "Live retrieval per method · frozen candidate pools · frozen pools plus frozen contexts",
+    choice:
+      "Freeze the top-20 candidates once, compare every reranker on that pool, then replay generation over one frozen top-5.",
+    why:
+      "Retrieval, reranking and generation effects are separated by construction. Paired bootstrap confidence intervals compare methods on identical queries.",
+    cost:
+      "The stages cannot adapt to each other. A real system could rerank the pool differently per query; the benchmark deliberately cannot.",
+  },
+  {
+    id: "D4",
+    title: "Publish the negative result",
+    context:
+      "The first run tested the free open-weights OpenJev model. As an always-on reranker it was flat on XQuAD and cost 7.75 nDCG points on SciFact.",
+    options:
+      "Quietly swap in a better model · publish the failure · publish the failure and keep testing",
+    choice:
+      "Publish it, then keep testing — with a preregistered protocol and every later analysis labelled exploratory.",
+    why:
+      "A benchmark's credibility comes from the runs where its hypothesis loses. The negative result is also the finding: the approach was sound, the free model was not.",
+    cost:
+      "The headline is less shiny, and later additions had to carry an honest 'exploratory' label instead of being framed as confirmatory.",
+  },
+  {
+    id: "D5",
+    title: "Always-on reranking, or confidence-gated decisions?",
+    context:
+      "Ranking every candidate by independent probabilities is noisy. The model's own calibration offered a different interface.",
+    options:
+      "Always-on reranking · all-or-nothing switching · confidence-partitioned decisions",
+    choice:
+      "Keep candidates with p ≥ 0.5 in the model's order, fall back to the hybrid order for the rest; skip generation entirely when the top probability is low.",
+    why:
+      "The decision layer improved nDCG over the unranked baseline (+0.66 pts on XQuAD, CI excludes zero) and cut generation calls by 31% while raising answer F1.",
+    cost:
+      "A threshold must be chosen, documented and re-validated per domain. Gating is a policy, not a property of the model.",
+  },
+];
+
+const rerankRows = [
+  { dataset: "xquad-en", n: "1190", a: "98.11%", j: "98.03%", nModel: "99.37%", t: "98.93%" },
+  { dataset: "scifact", n: "300", a: "71.67%", j: "63.92%", nModel: "78.70%", t: "79.29%" },
+];
+---
+
+<BaseLayout
+  title="Jev RAG Benchmark — Systems — Emretheus"
+  description="Does TypeSafe Jev 1.13 actually improve a RAG pipeline? A free English benchmark with frozen candidate pools, calibration analysis and paired confidence intervals — including the runs where the answer was no."
+  path="/systems/jev-rag-benchmark/"
+>
+  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+
+  <header class="page-head">
+    <div class="wrap">
+      <p class="label label-ember reveal">Systems · case study</p>
+      <h1 class="display page-title reveal">Jev RAG Benchmark</h1>
+      <p class="page-lead reveal">
+        Does a System One model actually improve a RAG pipeline? I built a free,
+        English benchmark to find out — and kept the runs where the answer was
+        no. This is the study of its decisions, not a feature tour.
+      </p>
+      <p class="page-meta reveal">
+        <span class="label">evaluation · retrieval · LLM systems</span>
+        <a
+          class="label meta-link"
+          href="https://github.com/emretheus/jev-rag-benchmark"
+          target="_blank"
+          rel="noopener noreferrer">Repository ↗</a
+        >
+        <a
+          class="label meta-link"
+          href="https://github.com/emretheus/jev-rag-benchmark/blob/main/docs/protocol.md"
+          target="_blank"
+          rel="noopener noreferrer">Preregistered protocol ↗</a
+        >
+      </p>
+    </div>
+  </header>
+
+  <section class="wrap sec">
+    <p class="label section-label">The question</p>
+    <p class="prose-lead">
+      TypeSafe's Jev 1.13 returns typed decisions with calibrated
+      probabilities instead of text — a natural fit for one of RAG's quietest
+      jobs: deciding which retrieved passages deserve to reach the model. The
+      same job is done by a free open-weights lookalike, OpenJev, and by a
+      classic cross-encoder. So the benchmark puts all of them on identical
+      frozen candidates and asks a single question: does the model actually
+      improve the system?
+    </p>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The constraints</p>
+    <ul class="constraints">
+      <li>
+        <span class="label">01</span>
+        <p>English data only: XQuAD-EN and SciFact — no translation confound.</p>
+      </li>
+      <li>
+        <span class="label">02</span>
+        <p>$0 budget. Free tiers or the benchmark does not get re-run.</p>
+      </li>
+      <li>
+        <span class="label">03</span>
+        <p>Framework-neutral. The numbers must describe models, not wrappers.</p>
+      </li>
+      <li>
+        <span class="label">04</span>
+        <p>Negative results stay in. Exploratory analyses say so.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The decisions</p>
+    <ol class="decision-list">
+      {
+        decisions.map((d) => (
+          <li class="decision reveal" data-decision={d.id}>
+            <div class="decision-head">
+              <span class="decision-id label">{d.id}</span>
+              <h2 class="decision-title">{d.title}</h2>
+            </div>
+            <dl class="decision-body">
+              <div><dt class="label">Context</dt><dd>{d.context}</dd></div>
+              <div><dt class="label">Options</dt><dd>{d.options}</dd></div>
+              <div><dt class="label">Chosen</dt><dd class="is-chosen">{d.choice}</dd></div>
+              <div><dt class="label">Why</dt><dd>{d.why}</dd></div>
+              <div><dt class="label">The cost</dt><dd>{d.cost}</dd></div>
+            </dl>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">The result</p>
+    <p class="prose-lead">
+      nDCG@10 on identical frozen top-20 candidates. Branches: A = no
+      reranker (hybrid order), J = OpenJev 0.1 (free, open weights), N =
+      NVIDIA cross-encoder, T = TypeSafe Jev 1.13.
+    </p>
+    <div class="table-scroll reveal">
+      <table class="results">
+        <thead>
+          <tr>
+            <th>Dataset</th>
+            <th>n</th>
+            <th>A · no reranker</th>
+            <th>J · OpenJev</th>
+            <th>N · NVIDIA</th>
+            <th>T · Jev 1.13</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            rerankRows.map((row) => (
+              <tr>
+                <td>{row.dataset}</td>
+                <td>{row.n}</td>
+                <td>{row.a}</td>
+                <td>{row.j}</td>
+                <td>{row.nModel}</td>
+                <td class="is-chosen">{row.t}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <ul class="prose-list findings">
+      <li>
+        <strong>Jev helps, measurably.</strong> +0.82 nDCG points over the
+        unranked baseline on XQuAD (95% CI +0.35 to +1.31) and +7.62 on SciFact
+        (CI +4.88 to +10.38).
+      </li>
+      <li>
+        <strong>The free lookalike is not a substitute.</strong> OpenJev loses
+        15.4 points to real Jev on SciFact and actually harms ranking (−7.75
+        vs baseline). The approach was sound; the free model was not.
+      </li>
+      <li>
+        <strong>Against a trained cross-encoder, a tie on SciFact.</strong>
+        +0.59 points, CI −1.25 to +2.42 — no measurable difference — while
+        NVIDIA leads XQuAD by 0.45 points.
+      </li>
+      <li>
+        <strong>Calibration is the sleeper feature.</strong> OpenJev's
+        candidate-level probabilities are well calibrated on XQuAD (ECE 2.5%):
+        at p ≥ 0.5, precision is 94.9% against a 5% base rate. Confidence-gated
+        reranking added +0.66 points over baseline, and answerability gating
+        removed 31% of generation calls while improving answer F1 (31.9% →
+        33.0%).
+      </li>
+      <li>
+        <strong>Every number above cost $0.</strong> Codiv's free tier, the
+        NVIDIA NIM trial, and the Vercel AI Gateway free tier.
+      </li>
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">What failed</p>
+    <ul class="prose-list">
+      <li>
+        Assuming the model helps everywhere. On XQuAD the baseline was already
+        at 98.1% nDCG; there was almost nothing left to win, and always-on
+        reranking added noise instead of value.
+      </li>
+      <li>
+        Treating the free clone as a stand-in. On SciFact, OpenJev's always-on
+        reranking lost 7.75 points — a real, statistically clear regression.
+      </li>
+      <li>
+        Ignoring provider lifecycle. Three NVIDIA models were retired mid-run;
+        the pipeline now pins versions and records every resolved model.
+      </li>
+      <li>
+        Expecting free-tier throughput. The gateway answered bursts with
+        <code>429</code> and <code>Retry-After: 60</code>; the run settled at
+        roughly one request per second and checkpointed every 100 rows.
+      </li>
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <p class="label section-label">What I learned</p>
+    <ul class="prose-list">
+      <li>
+        A benchmark's most valuable output is often the constraint map: where
+        the model helps, where it does not, and what it must never be used for.
+      </li>
+      <li>
+        For decision models, calibration is the product. Probabilities are what
+        let a pipeline save money — ranking is just one consumer of them.
+      </li>
+      <li>
+        Report latency with its conditions. The real Jev's 4-second median in
+        the run is an artifact of free-tier pacing; a single request answered
+        in 0.6 seconds. Publishing one number without the other would be
+        misinformation.
+      </li>
+      <li>
+        "No measurable difference" is a real finding. A trust-worthy benchmark
+        needs a home for it.
+      </li>
+    </ul>
+  </section>
+
+  <nav class="wrap sec sys-next" aria-label="Systems">
+    <a class="sys-next-link" href="/systems/">
+      <span class="label">Back to</span>
+      <span>All systems</span>
+    </a>
+    <p class="label">
+      Reproduce it: <a
+        class="meta-link"
+        href="https://github.com/emretheus/jev-rag-benchmark"
+        target="_blank"
+        rel="noopener noreferrer">github.com/emretheus/jev-rag-benchmark ↗</a
+      >
+    </p>
+  </nav>
+</BaseLayout>
+
+<style>
+  .page-head {
+    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+    padding-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .page-title {
+    margin-top: 1rem;
+    font-size: clamp(2.2rem, 7vw, 4.5rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+  }
+  .page-lead {
+    margin-top: 1.25rem;
+    color: var(--ash);
+    max-width: 58ch;
+    font-size: 1.06rem;
+  }
+  .page-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.75rem;
+    margin-top: 1.25rem;
+  }
+  .meta-link {
+    color: var(--ember);
+  }
+  .meta-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .sec {
+    margin-top: clamp(3rem, 7vw, 5rem);
+  }
+  .section-label {
+    margin-bottom: 1.25rem;
+  }
+  .prose-lead {
+    color: var(--ash);
+    max-width: 62ch;
+    font-size: 1.06rem;
+    line-height: 1.7;
+  }
+
+  .constraints,
+  .prose-list {
+    display: grid;
+    gap: 0.9rem;
+    max-width: 62ch;
+  }
+  .constraints li,
+  .prose-list li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .constraints p,
+  .prose-list li {
+    color: var(--ash);
+    font-size: 1.02rem;
+    line-height: 1.65;
+  }
+  .prose-list li {
+    grid-template-columns: 1fr;
+  }
+  .findings li strong {
+    color: var(--bone);
+  }
+
+  .table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1.75rem;
+  }
+  .results {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    min-width: 640px;
+  }
+  .results th,
+  .results td {
+    text-align: left;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .results th {
+    font-weight: 500;
+    color: var(--smoke);
+  }
+  .results td {
+    color: var(--ash);
+  }
+  .results td.is-chosen {
+    color: var(--ember);
+  }
+
+  code {
+    font-family: inherit;
+    padding: 0.15rem 0.35rem;
+    background: var(--bg-2);
+  }
+
+  .decision-list {
+    display: grid;
+    gap: clamp(2rem, 5vw, 3.25rem);
+  }
+  .decision {
+    max-width: 62ch;
+    transition: background 0.3s var(--ease);
+    padding: 1rem 1.25rem;
+    margin-inline: -1.25rem;
+    border-radius: var(--radius);
+  }
+  .decision.is-lit {
+    background: var(--heat);
+  }
+  .decision-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  .decision-id {
+    color: var(--ember);
+  }
+  .decision-title {
+    font-size: clamp(1.2rem, 2.2vw, 1.5rem);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .decision-body {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .decision-body > div {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+  .decision-body dt {
+    font-size: 0.62rem;
+  }
+  .decision-body dd {
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  .decision-body dd.is-chosen {
+    color: var(--bone);
+  }
+
+  .sys-next {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+    align-items: baseline;
+    margin-top: clamp(4rem, 9vw, 6rem);
+  }
+  .sys-next-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: var(--ash);
+    transition: color 0.3s var(--ease);
+  }
+  .sys-next-link:hover {
+    color: var(--ember);
+  }
+
+  @media (max-width: 640px) {
+    .decision-body > div {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+  }
+</style>

@@ -19,6 +19,7 @@ taking ideas from prototype to production.
 | --- | --- |
 | [**BioAgents**](https://github.com/bio-xyz/BioAgents) | Multi-agent AI for autonomous research in the life sciences |
 | [**grex**](https://github.com/emretheus/grex) | One interface to run Claude, Codex, Cursor & Gemini agents in parallel |
+| [**jev-rag-benchmark**](https://github.com/emretheus/jev-rag-benchmark) | Free English RAG benchmark: does TypeSafe Jev 1.13 help? Frozen pools, calibration, paired CIs — $0 to reproduce |
 | [**meetwit**](https://github.com/emretheus/meetwit) | Local-first AI meeting assistant with on-device transcription |
 | [**inclave**](https://github.com/emretheus/inclave) | Private, on-device AI over your local files (Ollama) |
 | [**claude-remind-mcp**](https://github.com/emretheus/claude-remind-mcp) | MCP server to search your Claude Code history |
