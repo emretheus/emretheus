@@ -4,13 +4,13 @@ import { SITE } from "../config";
 interface Props {
   title?: string;
   description?: string;
-  /** Path of this page, e.g. "/distillations/" — used for canonical + og:url */
+  /** Path of this page, e.g. "/distillations/", used for canonical + og:url */
   path?: string;
   ogImage?: string;
 }
 
 const {
-  title = `${SITE.name} — ${SITE.statement}`,
+  title = `${SITE.name} · ${SITE.statement}`,
   description = SITE.description,
   path = "/",
   ogImage = SITE.ogImage,
@@ -56,7 +56,7 @@ const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: SITE.name,
-  alternateName: `${SITE.fullName} — ${SITE.statement}`,
+  alternateName: `${SITE.fullName} · ${SITE.statement}`,
   url: SITE.url,
   inLanguage: SITE.lang,
   author: { "@type": "Person", name: SITE.fullName },
@@ -80,7 +80,7 @@ const websiteSchema = {
 <meta property="og:image" content={ogImageUrl} />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content={`${SITE.name} — ${SITE.statement}`} />
+<meta property="og:image:alt" content={`${SITE.name} · ${SITE.statement}`} />
 <meta property="og:site_name" content={SITE.name} />
 <meta property="og:locale" content={SITE.locale} />
 
@@ -90,7 +90,7 @@ const websiteSchema = {
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={ogImageUrl} />
-<meta name="twitter:image:alt" content={`${SITE.name} — ${SITE.statement}`} />
+<meta name="twitter:image:alt" content={`${SITE.name} · ${SITE.statement}`} />
 
 <!-- Structured Data -->
 <script type="application/ld+json" set:html={JSON.stringify(personSchema)} />

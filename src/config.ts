@@ -15,9 +15,9 @@ export const SITE = {
     "I go into complex systems, ideas and technologies, find what actually matters, and bring it back in a form humans can understand.",
   /** Current thesis */
   thesisLead: "Code is becoming easier to produce.",
-  thesis: "Understanding what should be built — and why — isn't.",
+  thesis: "Understanding what should be built, and why, is not.",
   description:
-    "Emretheus (Emre Ulgac) — a laboratory and publication about understanding complex systems. Distillations on semantic search, retrieval, LLMs, agent systems and the engineering decisions behind them.",
+    "Emretheus is Emre Ulgac's laboratory and publication about understanding complex systems. Distillations on semantic search, retrieval, LLMs, agent systems and the engineering decisions behind them.",
   location: "Berlin, Germany",
   url: "https://emretheus.xyz",
   ogImage: "/og-image.png",

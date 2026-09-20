@@ -4,8 +4,8 @@ import { DISTILLATIONS, DISTILLATION_QUEUE } from "../../data/distillations";
 ---
 
 <BaseLayout
-  title="Distillations — Emretheus"
-  description="Deep concepts explained simply: semantic search, BM25, retrieval, LLM systems. Every distillation moves from intuition to math to a real system — and ends in one sentence."
+  title="Distillations · Emretheus"
+  description="Deep concepts explained simply: semantic search, BM25, retrieval, LLM systems. Every distillation moves from intuition to math to a real system, and ends in one sentence."
   path="/distillations/"
 >
   <header class="page-head">
@@ -17,7 +17,7 @@ import { DISTILLATIONS, DISTILLATION_QUEUE } from "../../data/distillations";
       </h1>
       <p class="page-lead reveal">
         Every concept follows the same path: intuition, example, math, a real
-        system, where it breaks — and one sentence at the end. Choose your
+        system, where it breaks, and one sentence at the end. Choose your
         depth while reading.
       </p>
     </div>
@@ -32,7 +32,7 @@ import { DISTILLATIONS, DISTILLATION_QUEUE } from "../../data/distillations";
               <div class="dist-item-head">
                 <h2 class="dist-name display">{d.title}</h2>
                 <span class="label dist-meta">
-                  {d.fields.join(" · ")} — {d.readingTime}
+                  {d.fields.join(" · ")} · {d.readingTime}
                 </span>
               </div>
               <p class="dist-question">{d.question}</p>
