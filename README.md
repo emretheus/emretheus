@@ -8,25 +8,10 @@ I build software across the interface, backend and infrastructure, with 6+ years
 
 I take responsibility for architecture and delivery, including the parts that keep a system usable in production: persistent state, background jobs, recovery, observability and deployment.
 
-[Website](https://emretheus.xyz) · [LinkedIn](https://www.linkedin.com/in/emre-ulgac) · [Hugging Face](https://huggingface.co/emretheus) · [Email](mailto:ulgacemre@gmail.com)
-
-## Recent engineering work
-
-**Applied Scientific Intelligence · Full-Stack & AI Engineer**
-
-- Built a collaborative research canvas with React, Tauri and Yjs, backed by FastAPI and PostgreSQL.
-- Developed multi-agent orchestration connecting literature research, data analysis and prediction tools, with asynchronous execution and conversation-state handling.
-- Built literature-agent APIs and persistent research sessions. Used SQS for background jobs and Redis Streams for replayable progress updates across ECS instances.
-- Integrated hosted and self-hosted Nemotron models; provisioned vLLM GPU inference with AWS CDK, idle shutdown and on-demand wake-up. Owned ECS/Fargate deployments, logging and cost alerts.
-
-**Bio Protocol · Member of Technical Staff, AI Agents**
-
-- Built BioAgents research workflows and replaced the initial Eliza core with a custom TypeScript/Bun runtime using Anthropic and OpenAI SDKs.
-- Built evaluation workflows combining scientist-led human review, LLM-as-judge assessments and LangSmith tracing.
-- Implemented biomedical retrieval with document ingestion, embeddings and Cohere reranking. Designed the BullMQ/Redis job system with distributed workers, retries, renewable locks and persisted research state.
-- Deployed services on AWS and DigitalOcean using Docker Swarm, with separate environments and commit-pinned releases.
-
-Earlier, I built full-stack and smart-contract applications at Dapplabs, Softfact and CryptoWelts, taught data science at Clarusway, and developed computer vision for a waste-sorting system at Greenbrain AI.
+[![Website](https://img.shields.io/badge/Website-emretheus.xyz-0ea5e9?style=flat-square&logo=astro&logoColor=white)](https://emretheus.xyz)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-emre--ulgac-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/emre-ulgac)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-emretheus-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/emretheus)
+[![Email](https://img.shields.io/badge/Email-ulgacemre%40gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:ulgacemre@gmail.com)
 
 ## Selected projects
 
