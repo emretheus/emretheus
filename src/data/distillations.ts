@@ -89,6 +89,16 @@ export const DISTILLATIONS: Distillation[] = [
     fields: ["embeddings", "retrieval", "dimensions"],
     readingTime: "13 min",
   },
+  {
+    slug: "tokenization",
+    title: "Tokenization",
+    question:
+      "Why can a model that writes working code not count the letters in a word?",
+    oneSentence:
+      "A language model does not read characters; it reads tokens, so counting letters is a reconstruction task, not a lookup.",
+    fields: ["llm", "tokenization", "inference"],
+    readingTime: "14 min",
+  },
 ];
 
 /** Topics in the queue — visible, honest, not yet written. */
@@ -98,7 +108,6 @@ export const DISTILLATION_QUEUE = [
   "HNSW",
   "Vector databases",
   "Attention",
-  "Tokens",
   "Context windows",
   "Tool calling",
   "Structured outputs",

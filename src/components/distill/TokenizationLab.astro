@@ -1,0 +1,387 @@
+---
+// Token lab: text in, tokens out. A small greedy longest-match tokenizer
+// shows the split, and every token reports how many target letters it holds.
+// The point is not the exact vocabulary of any real tokenizer: it is that
+// the model sees pieces, never characters.
+---
+
+<div class="tk" data-tk>
+  <div class="tk-head">
+    <span class="label">Token lab · text in, tokens out</span>
+    <div class="tk-actions">
+      <button class="control" type="button" data-tk-preset="strawberry">
+        <span>strawberry</span>
+      </button>
+      <button class="control" type="button" data-tk-preset="mississippi">
+        <span>mississippi</span>
+      </button>
+      <button class="control" type="button" data-tk-preset="banana">
+        <span>banana</span>
+      </button>
+      <button class="control" type="button" data-tk-preset="internationalization">
+        <span>internationalization</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="tk-bar">
+    <label class="tk-field">
+      <span class="label">Text</span>
+      <input
+        type="text"
+        value="strawberry"
+        maxlength="30"
+        spellcheck="false"
+        autocomplete="off"
+        data-tk-text
+      />
+    </label>
+    <label class="tk-field tk-field-letter">
+      <span class="label">Letter</span>
+      <input
+        type="text"
+        value="r"
+        maxlength="1"
+        spellcheck="false"
+        autocomplete="off"
+        data-tk-letter
+      />
+    </label>
+  </div>
+
+  <div class="tk-panel">
+    <span class="label tk-panel-label">What you see · characters</span>
+    <div class="tk-chars" data-tk-chars></div>
+  </div>
+
+  <div class="tk-panel">
+    <span class="label tk-panel-label">What the model sees · tokens</span>
+    <div class="tk-tokens" data-tk-tokens></div>
+  </div>
+
+  <div class="tk-metrics">
+    <div class="tk-metric">
+      <span class="label tk-metric-name">Characters</span>
+      <span class="tk-metric-value" data-tk-chars-n>…</span>
+      <span class="label tk-metric-line">separate objects to you, invisible to the model</span>
+      <span class="tk-metric-q">Can the model iterate over them?</span>
+    </div>
+    <div class="tk-metric">
+      <span class="label tk-metric-name">Tokens</span>
+      <span class="tk-metric-value" data-tk-tokens-n>…</span>
+      <span class="label tk-metric-line">the working units the network actually processes</span>
+      <span class="tk-metric-q">What does it really read?</span>
+    </div>
+    <div class="tk-metric">
+      <span class="label tk-metric-name">Count</span>
+      <span class="tk-metric-value" data-tk-count>…</span>
+      <span class="label tk-metric-line" data-tk-count-line></span>
+      <span class="tk-metric-q">Code counts. The model reconstructs.</span>
+    </div>
+  </div>
+
+  <p class="tk-note" data-tk-note aria-live="polite"></p>
+</div>
+
+<style is:global>
+  .tk {
+    background: var(--bg-2);
+  }
+  .tk-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .tk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .tk-bar {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    padding: 0.5rem 1.15rem 0.9rem;
+  }
+  .tk-field {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .tk-field input {
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    color: var(--bone);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    padding: 0.5rem 0.65rem;
+    min-width: 16rem;
+  }
+  .tk-field input:focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: 1px;
+  }
+  .tk-field-letter input {
+    min-width: 3.5rem;
+    text-align: center;
+  }
+
+  .tk-panel {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.35rem 1.15rem 0.75rem;
+  }
+  .tk-panel-label {
+    color: var(--smoke);
+    font-size: 0.62rem;
+  }
+  .tk-chars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .tk-char {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    color: var(--ash);
+    background: var(--bg-3);
+    padding: 0.4rem 0.55rem;
+    min-width: 1.9rem;
+    text-align: center;
+  }
+  .tk-char.is-hit {
+    background: var(--heat);
+    color: var(--ember);
+  }
+
+  .tk-tokens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .tk-token {
+    display: grid;
+    gap: 0.25rem;
+    background: var(--bg-3);
+    padding: 0.5rem 0.7rem;
+    min-width: 4.5rem;
+  }
+  .tk-token.is-hit {
+    box-shadow: inset 2px 0 0 var(--ember);
+  }
+  .tk-piece {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--ash);
+  }
+  .tk-token.is-hit .tk-piece {
+    color: var(--bone);
+  }
+  .tk-token-meta {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--smoke);
+  }
+  .tk-token.is-hit .tk-token-meta {
+    color: var(--ember);
+  }
+
+  .tk-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.35rem 1.15rem 1rem;
+  }
+  .tk-metric {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+  }
+  .tk-metric-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 2.8vw, 1.9rem);
+    color: var(--bone);
+  }
+  .tk-metric-line {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.6;
+  }
+  .tk-metric-q {
+    color: var(--ash);
+    font-size: 0.9rem;
+  }
+
+  .tk-note {
+    padding: 0.5rem 1.15rem 1.15rem;
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  @media (max-width: 760px) {
+    .tk-metrics {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+    .tk-field input {
+      min-width: 12rem;
+    }
+  }
+</style>
+
+<script>
+  // A tiny illustrative vocabulary. Real tokenizers learn tens of thousands
+  // of pieces; this list exists to make the split visible, not to be exact.
+  const VOCAB = [
+    "international",
+    "ization",
+    "straw",
+    "berry",
+    "miss",
+    "iss",
+    "ipp",
+    "ban",
+    "ana",
+    "the",
+    "and",
+    "hello",
+    "world",
+    "ing",
+    "tion",
+    "er",
+    "re",
+    "st",
+    "str",
+    "aw",
+    "be",
+    "rr",
+    "na",
+    "an",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+  ];
+
+  const tokenId = (piece: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < piece.length; i++) {
+      h ^= piece.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (Math.abs(h) % 49000) + 1000;
+  };
+
+  const split = (text: string) => {
+    const pieces: string[] = [];
+    let i = 0;
+    while (i < text.length) {
+      let match = "";
+      for (const piece of VOCAB) {
+        if (text.startsWith(piece, i) && piece.length > match.length) {
+          match = piece;
+        }
+      }
+      if (!match) match = text[i];
+      pieces.push(match);
+      i += match.length;
+    }
+    return pieces;
+  };
+
+  const root = document.querySelector<HTMLElement>("[data-tk]");
+  if (root) {
+    const textInput = root.querySelector<HTMLInputElement>("[data-tk-text]")!;
+    const letterInput =
+      root.querySelector<HTMLInputElement>("[data-tk-letter]")!;
+    const charsEl = root.querySelector<HTMLElement>("[data-tk-chars]")!;
+    const tokensEl = root.querySelector<HTMLElement>("[data-tk-tokens]")!;
+    const note = root.querySelector<HTMLElement>("[data-tk-note]")!;
+    const out = {
+      chars: root.querySelector<HTMLElement>("[data-tk-chars-n]")!,
+      tokens: root.querySelector<HTMLElement>("[data-tk-tokens-n]")!,
+      count: root.querySelector<HTMLElement>("[data-tk-count]")!,
+      countLine: root.querySelector<HTMLElement>("[data-tk-count-line]")!,
+    };
+
+    const render = () => {
+      const text = (textInput.value || "strawberry").slice(0, 30);
+      const letter = (letterInput.value || "r").toLowerCase().slice(0, 1);
+      const pieces = split(text);
+      const total = text.split("").filter((c) => c.toLowerCase() === letter)
+        .length;
+
+      charsEl.innerHTML = text
+        .split("")
+        .map((c) => {
+          const shown = c === " " ? "␣" : c;
+          const hit = c.toLowerCase() === letter ? " is-hit" : "";
+          return `<span class="tk-char${hit}">${shown}</span>`;
+        })
+        .join("");
+
+      tokensEl.innerHTML = pieces
+        .map((p) => {
+          const n = p.split("").filter((c) => c.toLowerCase() === letter).length;
+          const hit = n > 0 ? " is-hit" : "";
+          const label = n === 1 ? `1 ${letter}` : `${n} ${letter}'s`;
+          return `
+        <span class="tk-token${hit}">
+          <span class="tk-piece">“${p}”</span>
+          <span class="tk-token-meta">tok ${tokenId(p)} · ${n > 0 ? label : "no " + letter}</span>
+        </span>`;
+        })
+        .join("");
+
+      out.chars.textContent = String(text.length);
+      out.tokens.textContent = String(pieces.length);
+      out.count.textContent = `${total} × ${letter}`;
+      out.countLine.textContent = `word.count("${letter}") = ${total} in code, computed by iterating`;
+
+      const holders = pieces.filter((p) =>
+        p.split("").some((c) => c.toLowerCase() === letter),
+      ).length;
+      note.textContent = `The text splits into ${pieces.length} token${pieces.length === 1 ? "" : "s"}, and the ${total} “${letter}”${total === 1 ? "" : "s"} live inside ${holders} of them. Nothing in the network loops over characters: the model has to reconstruct the string from token representations, so the answer is assembled from memory of what those pieces contain rather than counted.`;
+    };
+
+    textInput.addEventListener("input", render);
+    letterInput.addEventListener("input", render);
+    root.querySelectorAll<HTMLButtonElement>("[data-tk-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        textInput.value = btn.dataset.tkPreset ?? "strawberry";
+        render();
+      });
+    });
+    render();
+  }
+</script>

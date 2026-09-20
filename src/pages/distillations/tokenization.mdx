@@ -1,0 +1,115 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Tokenization"
+question: "Why can a model that writes working code not count the letters in a word?"
+oneSentence: "A language model does not read characters; it reads tokens, so counting letters is a reconstruction task, not a lookup."
+fields: ["llm", "tokenization", "inference"]
+readingTime: "14 min"
+slug: "tokenization"
+description: "Tokenization explained: why models see word pieces instead of letters, why counting the r's in strawberry is hard, what tokens mean for cost and context limits, and when to reach for code instead."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import TokenizationLab from "../../components/distill/TokenizationLab.astro";
+
+<Section n="02" label="The intuition" title="It reads pieces, not letters.">
+
+You see `banana` as six letters: b, a, n, a, n, a. The model does not. Depending on the tokenizer, it sees something like `["ban", "ana"]` or `["banana"]`. The working unit is not a letter and not exactly a word. It is a <Term def="A piece of text from the tokenizer's vocabulary. It can be a whole word, a word fragment, a single character, or even part of a number.">token</Term>.
+
+That difference sounds small until you ask a character-level question. “How many r's are in strawberry?” is a `count()` call for you. For the model there are no separate r objects to iterate over. The letters are baked into token representations, and the answer has to be reconstructed rather than looked up.
+
+<Figure caption="Type any text. The split is illustrative, the arithmetic is real: every token reports the letters it contains.">
+  <TokenizationLab />
+</Figure>
+
+Why not just use characters as tokens? Cost. `internationalization` is 20 characters, so a character-level model would spend 20+ tokens on one word. A subword tokenizer represents it in two or three pieces, which means shorter sequences, less compute, and cheaper training and inference. Tokenization is an efficiency decision first, and its side effect is that character-level work stops being natural.
+
+<Deeper>
+
+Tokens are not words either. The same word can split differently depending on casing, leading spaces and context, and a rare name can shatter into many small pieces. This is also why token counts differ between languages: the same sentence in English and Turkish does not cost the same number of tokens, and a model can only see what its tokenizer produced.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="A next-token machine has no character loop.">
+
+The architecture is a pipeline of one repeated question: given the tokens so far, what comes next?
+
+`text → tokens → embeddings → attention → hidden states → next-token probabilities`
+
+There is no built-in `word.count("r")`, no indexing into a string, no loop over characters. Those operations exist in code, not in the computation graph. The model can learn that the piece `"berry"` usually contains two r's, but that knowledge is a statistical association stored in weights, not a procedure it can run on demand.
+
+So the task “count the letters” is not a reasoning problem. It is a **deterministic computation** problem, and the model is the wrong machine for it.
+
+<MathOnly>
+
+Formally, the tokenizer is a function `T` from strings to sequences of vocabulary pieces:
+
+`T("strawberry") = ["straw", "berry"]`
+
+The model computes `P(t_{n+1} | t_1 … t_n)` over tokens. A character-level operation needs two things the graph does not provide: the inverse map `T⁻¹` that recovers the exact characters of every piece, and iteration over positions. Both are cheap in code and absent in the network.
+
+Attention also operates over tokens, not characters, so the model has no per-character position to point at. When it answers a letter-count question correctly, it has reconstructed the string internally, often by spelling it out token by token, which is why longer strings and repeated letters get less reliable, not more.
+
+</MathOnly>
+
+<Deeper>
+
+Tokenizers are usually trained with byte-pair encoding or similar methods: start from characters, repeatedly merge the most frequent pairs, and stop at a vocabulary size (often 32k to 200k pieces). The vocabulary becomes the model's alphabet. A number like `12345` may split as `["123", "45"]`, which is one reason arithmetic on digits is unreliable too: the digits are not aligned in any consistent way.
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="Where this shows up in production.">
+
+<Figure caption="Focus a step. Everything the model reasons about is token-shaped, and the deterministic work belongs on the other side of the line.">
+  <Pipeline
+    steps={[
+      { label: "Text", detail: "The user's raw string, with all its characters and spaces. This is the last moment the exact characters exist as characters." },
+      { label: "Tokenize", detail: "A learned vocabulary splits the text into pieces and maps each piece to an ID. The model will never see the original string again." },
+      { label: "Embed and attend", detail: "Token IDs become vectors, and attention mixes them. Positions are token positions, not character positions." },
+      { label: "Next token", detail: "The model produces probabilities over the vocabulary. Character-level questions are answered from learned associations, not from an iteration." },
+      { label: "Deterministic step", detail: "Anything with a known procedure (counting, reversing, indexing, arithmetic) belongs in code, reached through a tool call, not in the model's head." },
+      { label: "Answer", detail: "The model writes the response. The exactness of the answer depends on which side of the line the work was done." },
+    ]}
+    groups={[
+      { label: "The model's world", detail: "Tokens, embeddings and probabilities. Powerful for meaning, fuzzy for exact character structure.", steps: [0, 1, 2, 3] },
+      { label: "The deterministic world", detail: "A function with a known procedure runs in code and returns an exact result. This is where letter counting belongs.", steps: [4, 5] },
+    ]}
+  />
+</Figure>
+
+The practical rule that follows: **known workflow goes to code, uncertain reasoning goes to the model.** Counting letters is a known workflow. So is reversing a string, finding the 7th character, or doing arithmetic. Summarizing, classifying intent, or deciding which tool to call is uncertain reasoning, and that is where the model earns its place.
+
+This has a few everyday consequences:
+
+- **You pay per token, not per character.** Billing and rate limits are token-based, and the same content costs different amounts in different languages.
+- **Context limits are token limits.** A prompt that looks short in characters can be long in tokens, especially with rare words, code, or non-English text.
+- **Formatting changes the split.** Extra spaces, punctuation and casing can move token boundaries, which is part of why small prompt changes sometimes produce surprisingly different behavior.
+- **The fix is a tool, not a better prompt.** Expose a `count_letters(text, letter)` function through tool calling and the answer becomes exact, because the deterministic step moved to code.
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="The fine print.">
+
+- **It is not that the model cannot see letters.** It can, indirectly. It is that the operation is not native, so the answer is reconstructed from representations instead of counted.
+- **Correct answers do not mean the mechanism changed.** A model that gets “strawberry” right may still fail “mississippi”, because each answer is a reconstruction, not a procedure.
+- **Longer and rarer means worse.** Repeated letters, unusual names and long strings are the cases where reconstruction fails most often.
+- **Never estimate token counts by eye.** English averages roughly four characters per token, but that average breaks on code, numbers, URLs, emojis and other languages. Measure with the actual tokenizer.
+- **Tokenizer changes are model changes.** The same text tokenizes differently across models, so token counts, context budgets and costs do not transfer between providers.
+- **Do not ask the model to be a string library.** Counting, reversing, indexing, slicing and arithmetic all have exact implementations one tool call away. Using the model for them is choosing the slower, less reliable path.
+
+<Deeper>
+
+If you need to explain it in one breath: language models do not naturally operate on characters. Text is split into tokens that may contain several characters or whole word pieces, so character-level tasks require reconstructing the string structure indirectly instead of iterating over it, which makes them surprisingly error-prone. The model reads tokens, not letters, and letter counting is simply not a native operation in that data structure.
+
+</Deeper>
+
+</Section>
