@@ -99,6 +99,15 @@ export const DISTILLATIONS: Distillation[] = [
     fields: ["llm", "tokenization", "inference"],
     readingTime: "14 min",
   },
+  {
+    slug: "attention",
+    title: "Attention",
+    question: "Why does doubling the context length quadruple the work?",
+    oneSentence:
+      "Attention lets every token look at every previous token, so the work grows with the square of the context, while the weights in each row must still sum to one.",
+    fields: ["llm", "attention", "inference"],
+    readingTime: "15 min",
+  },
 ];
 
 /** Topics in the queue — visible, honest, not yet written. */
@@ -107,7 +116,6 @@ export const DISTILLATION_QUEUE = [
   "Embeddings",
   "HNSW",
   "Vector databases",
-  "Attention",
   "Context windows",
   "Tool calling",
   "Structured outputs",

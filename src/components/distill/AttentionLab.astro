@@ -1,0 +1,266 @@
+---
+// Attention lab: a causal attention matrix for n tokens.
+// Rows are queries, columns are keys, and every row is a softmax that sums to 1.
+// Growing n shows three things at once: quadratic pairs, linear KV memory,
+// and the way a fixed attention budget gets diluted across more positions.
+---
+
+<div class="at" data-at>
+  <div class="at-head">
+    <span class="label">Attention lab · causal matrix, one head</span>
+    <span class="label at-hint">row = query token · column = key token</span>
+  </div>
+
+  <div class="at-bar">
+    <label class="at-slider">
+      <span class="label">Context length <em data-at-n-val>64</em></span>
+      <input type="range" min="0" max="8" step="1" value="4" data-at-n />
+    </label>
+    <span class="label at-scale" data-at-scale>64 tokens</span>
+  </div>
+
+  <div class="at-canvas-wrap">
+    <canvas class="at-canvas" data-at-canvas width="64" height="64"></canvas>
+    <div class="at-legend">
+      <span class="label">less attention</span>
+      <span class="at-ramp"></span>
+      <span class="label">more attention</span>
+    </div>
+  </div>
+
+  <div class="at-metrics">
+    <div class="at-metric">
+      <span class="label at-metric-name">Attention pairs</span>
+      <span class="at-metric-value" data-at-pairs>…</span>
+      <span class="label at-metric-line">scored per head, per layer</span>
+      <span class="at-metric-q">How does the work grow?</span>
+    </div>
+    <div class="at-metric">
+      <span class="label at-metric-name">KV cache</span>
+      <span class="at-metric-value" data-at-kv>…</span>
+      <span class="label at-metric-line" data-at-kv-line></span>
+      <span class="at-metric-q">What does the context cost in memory?</span>
+    </div>
+    <div class="at-metric">
+      <span class="label at-metric-name">Biggest weight</span>
+      <span class="at-metric-value" data-at-top>…</span>
+      <span class="label at-metric-line">largest softmax weight in the last row</span>
+      <span class="at-metric-q">How much can one token focus?</span>
+    </div>
+  </div>
+
+  <p class="at-note" data-at-note aria-live="polite"></p>
+</div>
+
+<style is:global>
+  .at {
+    background: var(--bg-2);
+  }
+  .at-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 1rem 1.15rem 0.35rem;
+  }
+  .at-hint {
+    color: var(--smoke);
+    font-size: 0.6rem;
+  }
+  .at-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    padding: 0.35rem 1.15rem 0.9rem;
+  }
+  .at-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .at-slider em {
+    font-style: normal;
+    color: var(--ember);
+  }
+  .at-slider input[type="range"] {
+    width: clamp(9rem, 22vw, 15rem);
+    accent-color: var(--ember);
+    background: transparent;
+  }
+  .at-scale {
+    color: var(--smoke);
+    font-size: 0.62rem;
+  }
+
+  .at-canvas-wrap {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.25rem 1.15rem 1rem;
+    justify-items: start;
+  }
+  .at-canvas {
+    width: min(100%, 22rem);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    background: var(--bg-3);
+    image-rendering: pixelated;
+  }
+  .at-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .at-legend .label {
+    font-size: 0.58rem;
+  }
+  .at-ramp {
+    width: 6rem;
+    height: 0.35rem;
+    background: linear-gradient(
+      to right,
+      rgba(255, 92, 44, 0.06),
+      rgba(255, 92, 44, 0.5),
+      rgba(255, 92, 44, 1)
+    );
+  }
+
+  .at-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.25rem 1.15rem 1rem;
+  }
+  .at-metric {
+    display: grid;
+    gap: 0.35rem;
+    align-content: start;
+  }
+  .at-metric-value {
+    font-family: var(--font-mono);
+    font-size: clamp(1.3rem, 2.6vw, 1.8rem);
+    color: var(--bone);
+  }
+  .at-metric-line {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    line-height: 1.6;
+  }
+  .at-metric-q {
+    color: var(--ash);
+    font-size: 0.9rem;
+  }
+
+  .at-note {
+    padding: 0.5rem 1.15rem 1.15rem;
+    color: var(--ash);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  @media (max-width: 760px) {
+    .at-metrics {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+  }
+</style>
+
+<script>
+  const STOPS = [4, 8, 16, 32, 64, 128, 256, 512, 1024];
+
+  // An 8B model with grouped-query attention, fp16:
+  // 2 (K and V) x 8 KV heads x 128 head dim x 2 bytes x 32 layers ~ 128 KB/token.
+  const KV_BYTES_PER_TOKEN = 131072;
+
+  const formatBytes = (bytes: number) => {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+    return `${(bytes / 1024).toFixed(0)} KB`;
+  };
+
+  // A plausible score shape: a strong attention sink on the first token,
+  // plus recency. Enough structure to make the matrix readable.
+  const score = (i: number, j: number) =>
+    j === 0 ? 2 : -0.02 * (i - j);
+
+  const root = document.querySelector<HTMLElement>("[data-at]");
+  if (root) {
+    const slider = root.querySelector<HTMLInputElement>("[data-at-n]")!;
+    const nVal = root.querySelector<HTMLElement>("[data-at-n-val]")!;
+    const scale = root.querySelector<HTMLElement>("[data-at-scale]")!;
+    const canvas = root.querySelector<HTMLCanvasElement>("[data-at-canvas]")!;
+    const note = root.querySelector<HTMLElement>("[data-at-note]")!;
+    const out = {
+      pairs: root.querySelector<HTMLElement>("[data-at-pairs]")!,
+      kv: root.querySelector<HTMLElement>("[data-at-kv]")!,
+      kvLine: root.querySelector<HTMLElement>("[data-at-kv-line]")!,
+      top: root.querySelector<HTMLElement>("[data-at-top]")!,
+    };
+
+    const render = () => {
+      const n = STOPS[Number(slider.value)];
+      nVal.textContent = String(n);
+      scale.textContent = `${n} tokens`;
+
+      canvas.width = n;
+      canvas.height = n;
+      const ctx = canvas.getContext("2d")!;
+      const img = ctx.createImageData(n, n);
+
+      let lastRowMax = 0;
+
+      for (let i = 0; i < n; i++) {
+        let maxScore = -Infinity;
+        for (let j = 0; j <= i; j++) {
+          const s = score(i, j);
+          if (s > maxScore) maxScore = s;
+        }
+        let sum = 0;
+        for (let j = 0; j <= i; j++) sum += Math.exp(score(i, j) - maxScore);
+
+        for (let j = 0; j <= i; j++) {
+          const w = Math.exp(score(i, j) - maxScore) / sum;
+          if (i === n - 1 && w > lastRowMax) lastRowMax = w;
+          // Global scaling, so the whole matrix dims as attention dilutes.
+          const alpha = Math.min(1, w * 4);
+          const p = (i * n + j) * 4;
+          img.data[p] = 255;
+          img.data[p + 1] = 92;
+          img.data[p + 2] = 44;
+          img.data[p + 3] = Math.round(alpha * 255);
+        }
+        // Masked cells stay empty. The lower triangle is the whole story.
+      }
+
+      ctx.putImageData(img, 0, 0);
+
+      const pairs = (n * (n + 1)) / 2;
+      const kv = n * KV_BYTES_PER_TOKEN;
+
+      out.pairs.textContent = pairs.toLocaleString("en-US");
+      out.kv.textContent = formatBytes(kv);
+      out.kvLine.textContent = `${formatBytes(KV_BYTES_PER_TOKEN)} per token · 100k tokens is over 12 GB`;
+      out.top.textContent = `${(lastRowMax * 100).toFixed(1)}%`;
+
+      if (n <= 16) {
+        note.textContent = `With ${n} tokens there are ${pairs.toLocaleString("en-US")} pairs to score. Attention is almost free here because there is almost nothing to look at.`;
+      } else if (n <= 64) {
+        note.textContent = `At ${n} tokens the matrix holds ${pairs.toLocaleString("en-US")} scored pairs. Doubling the context quadruples this number, and every head and every layer repeats the whole matrix.`;
+      } else if (n <= 256) {
+        note.textContent = `${pairs.toLocaleString("en-US")} pairs for a single head and a single layer. The KV cache for this one request is already ${formatBytes(kv)}, and it stays in memory for the whole conversation.`;
+      } else if (n <= 512) {
+        note.textContent = `${pairs.toLocaleString("en-US")} pairs and ${formatBytes(kv)} of cache for a single request. The last row now spreads its attention across ${n} positions, so the biggest single weight is only ${(lastRowMax * 100).toFixed(1)}%.`;
+      } else {
+        note.textContent = `${pairs.toLocaleString("en-US")} pairs and ${formatBytes(kv)} of cache, for one head and one request. The last row divides its attention across a thousand positions: the biggest weight is ${(lastRowMax * 100).toFixed(1)}%, down from about 70% at four tokens. The budget is fixed, so more context means a smaller share for everything, and prefill work keeps growing with the square of the prompt.`;
+      }
+    };
+
+    slider.addEventListener("input", render);
+    render();
+  }
+</script>

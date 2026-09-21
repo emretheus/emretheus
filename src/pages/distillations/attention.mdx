@@ -1,0 +1,117 @@
+---
+layout: ../../layouts/DistillationLayout.astro
+title: "Attention"
+question: "Why does doubling the context length quadruple the work?"
+oneSentence: "Attention lets every token look at every previous token, so the work grows with the square of the context, while the weights in each row must still sum to one."
+fields: ["llm", "attention", "inference"]
+readingTime: "15 min"
+slug: "attention"
+description: "Attention explained: queries, keys and values, what softmax does, why the cost is quadratic in context length, what the KV cache stores, and why long context is expensive in compute, memory and money."
+---
+
+import Section from "../../components/ui/Section.astro";
+import Deeper from "../../components/ui/Deeper.astro";
+import MathOnly from "../../components/ui/MathOnly.astro";
+import Term from "../../components/ui/Term.astro";
+import Figure from "../../components/ui/Figure.astro";
+import Pipeline from "../../components/distill/Pipeline.astro";
+import AttentionLab from "../../components/distill/AttentionLab.astro";
+
+<Section n="02" label="The intuition" title="Everyone reads everyone.">
+
+A token does not carry its meaning alone. To decide what it means in this sentence, the model lets it look at the other tokens and mix their information. That mixing operation is attention, and it is the reason transformers work at all.
+
+The cost is social. In a meeting where each person reads everyone else's notes, ten people produce ninety reading pairs. A hundred people produce nearly five thousand. A thousand people produce about half a million. Every token looks at every previous token, so the work grows with the **square** of the context length, not with the context length.
+
+<Figure caption="A causal attention matrix. Rows are queries, columns are keys, and each row is a softmax that sums to 1.">
+  <AttentionLab />
+</Figure>
+
+The matrix shows three things at once. It stays almost empty at four tokens and becomes a dense triangle at a thousand. The cache that stores the keys and values grows linearly, but with a large constant: about 128 KB per token for a common 8B model. And every row must sum to one, so as the row grows, each position gets a smaller share. The model does not get more attention when you give it more context. It spreads the same amount thinner.
+
+<Deeper>
+
+Two effects follow from that dilution. First, models develop an attention sink: the first token often absorbs a large share of every row, because it is always available and has no distance penalty. Second, relevance gets quieter in the middle of a long context. If a passage shares one fixed budget with a thousand other tokens, its weight shrinks even when it is the most important thing in the prompt. This is the mechanism behind the well-documented “lost in the middle” behavior, and it is why long context is a quality problem as well as a cost problem.
+
+</Deeper>
+
+</Section>
+
+<Section n="03" label="The math" title="Softmax over a growing row.">
+
+Each token produces three vectors: a <Term def="A vector that represents what this token is looking for. It is compared against the keys of other tokens to decide how much attention to pay them.">query</Term>, a <Term def="A vector that represents what this token offers. Queries and keys are compared to produce attention scores.">key</Term> and a <Term def="A vector that carries the information this token will pass on if it is attended to. The output is a weighted average of value vectors.">value</Term> vector. Attention compares the query of one token against the keys of the others, turns those comparisons into weights, and returns a weighted average of the values:
+
+`Attention(Q, K, V) = softmax(QKᵀ / √d) V`
+
+Three details carry most of the meaning:
+
+- **The dot product measures relevance.** A query and a key that point in similar directions score high.
+- **The `√d` scaling keeps softmax usable.** Without it, dot products grow with the vector dimension, softmax saturates into a one-hot vector, and the gradients that train the model become tiny.
+- **Softmax makes each row a distribution that sums to 1.** That constraint is the whole dilution story: a fixed budget per token, divided across however many positions it can see.
+
+<MathOnly>
+
+Complexity, for a sequence of `n` tokens, hidden size `d`, one head, one layer:
+
+- Scores: `n × n` dot products of length `d`, so `O(n²·d)`.
+- Causal decoding halves the constant: token `i` only needs columns `j ≤ i`, which is `n(n+1)/2` pairs.
+- A full model repeats this for every head and every layer, so the constant in front is large.
+
+Concrete numbers, using an 8B model with grouped-query attention in fp16 (8 KV heads, head dimension 128, 32 layers):
+
+- KV cache per token: `2 × 8 × 128 × 2 bytes × 32 layers ≈ 128 KB`
+- 8k tokens: `≈ 1 GB` · 32k tokens: `≈ 4 GB` · 100k tokens: `> 12 GB`
+- That memory is held for the whole request, and it competes with every other request on the GPU.
+
+Prefill and decode are different problems. Prefill processes the whole prompt at once, so its attention work is quadratic in prompt length and shows up as time to first token. Decode generates one token per step, and each step reads the entire KV cache, so it is bound by memory bandwidth rather than arithmetic. This is why prompt length drives latency and concurrency, while output length drives tokens per second.
+
+</MathOnly>
+
+<Deeper>
+
+FlashAttention is the standard answer to the memory problem. It computes the same math without ever materializing the full `n × n` matrix, which cuts memory traffic from quadratic to linear and makes attention much faster in practice. It does not remove the quadratic arithmetic. Grouped-query attention and multi-query attention shrink the KV cache by sharing keys and values across heads, which is why the 128 KB per token above is already an optimized number. Sliding window attention and linear attention variants go further by giving up full pairwise attention, trading some quality for a cost that stops growing quadratically.
+
+</Deeper>
+
+</Section>
+
+<Section n="04" label="Real system" title="Where the cost lands in serving.">
+
+<Figure caption="Focus a step. The same attention operation becomes three different bills: compute, memory and bandwidth.">
+  <Pipeline
+    steps={[
+      { label: "Prompt tokens", detail: "The request arrives. Its length sets the size of everything that follows." },
+      { label: "Prefill", detail: "All prompt tokens are processed together, so attention work is quadratic in prompt length. This is what time to first token measures." },
+      { label: "KV cache", detail: "Keys and values are stored so they are never recomputed. The cache grows linearly with context, about 128 KB per token for a common 8B model." },
+      { label: "Decode", detail: "One new token per step, each one attending to the entire cache. The arithmetic is small, the memory read is not, so decode is bandwidth-bound." },
+      { label: "Batching", detail: "Many requests share one GPU. A long cache occupies memory and limits how many other requests fit next to it." },
+      { label: "Answer", detail: "The final cost is three costs: quadratic prefill compute, linear cache memory, and bandwidth-limited decode." },
+    ]}
+    groups={[
+      { label: "Prefill", detail: "Where the quadratic term lives. Long prompts hurt here first.", steps: [0, 1] },
+      { label: "Cache and decode", detail: "Memory that must stay resident, and a per-token cost that reads all of it.", steps: [2, 3] },
+      { label: "Serving reality", detail: "On shared hardware, one long context changes what everyone else can run.", steps: [4, 5] },
+    ]}
+  />
+</Figure>
+
+The practical consequences are easy to observe:
+
+- **Time to first token grows with prompt length**, not with the length of the answer. A huge retrieved context is paid before the model says anything.
+- **Tokens per second depends on the cache size**, because each generated token re-reads it. Longer contexts decode more slowly.
+- **Throughput is a memory problem.** Long requests reduce how many others fit on the same GPU, which is why providers charge more for long context and why context limits are enforced so strictly.
+- **Techniques attack different terms.** Grouped-query attention and quantized caches shrink the memory term, FlashAttention shrinks the memory traffic, paged attention reduces fragmentation, and prefix caching avoids redoing prefill for a shared prefix.
+- **Retrieval exists partly because of this.** Sending five relevant chunks instead of a million tokens is the cheapest attention optimization available: it removes tokens from the square. The same budget logic appears in [embedding dimensions](/distillations/embedding-dimensions/) and in [tokenization](/distillations/tokenization/), where every token you add is paid for twice, once in compute and once in memory.
+
+</Section>
+
+<Section n="05" label="Where it breaks" title="The fine print.">
+
+- **FlashAttention made attention fast, not linear.** The arithmetic is still quadratic in context length. What changed is how efficiently the hardware executes it.
+- **Quadratic compute is not always the bottleneck.** In decode, attention is limited by memory bandwidth: reading the cache costs more than the arithmetic on it. Optimizing FLOPs can leave latency unchanged.
+- **More context is not more attention.** The softmax budget per token is fixed, so long prompts dilute every weight. Quality can fall even when the answer is technically in the context.
+- **The KV cache number is a product decision.** About 128 KB per token means 8k tokens cost roughly 1 GB per request and 100k tokens cost more than 12 GB. That is memory taken away from concurrency, before the model weights are counted.
+- **Do not compare context lengths across models.** KV cache size depends on layers, KV heads, head dimension and precision, not on the advertised token limit. Two models with the same limit can differ by a factor of ten in memory.
+- **The measurement that matters is yours.** Watch time to first token, tokens per second, and memory per request as context grows. The square is visible in real numbers long before it is visible in the bill.
+
+</Section>
