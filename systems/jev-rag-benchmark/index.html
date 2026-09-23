@@ -50,19 +50,23 @@ Partitioned reranking added +0.89 points on XQuAD (CI +0.45 to +1.36)
 Decision models can also govern tool calls: which tool to use, whether a
       call may run without review, whether arguments are valid, and whether
       observed text tries to manipulate the assistant. Same deterministic cases
-      for both models; Jev through the Vercel free tier, Laya (open weights)
-      served for free through its official Hugging Face demo Space.
-</p> <div class="table-scroll reveal" data-astro-cid-ukdfvevk> <table class="results" data-astro-cid-ukdfvevk> <thead data-astro-cid-ukdfvevk> <tr data-astro-cid-ukdfvevk> <th data-astro-cid-ukdfvevk>Task family (n = 40)</th> <th data-astro-cid-ukdfvevk>Jev 1.13</th> <th data-astro-cid-ukdfvevk>Laya</th> </tr> </thead> <tbody data-astro-cid-ukdfvevk> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 5 tools</td><td class="is-chosen" data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>100%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 20 tools</td><td data-astro-cid-ukdfvevk>90%</td><td class="is-chosen" data-astro-cid-ukdfvevk>100%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 50 tools</td><td class="is-chosen" data-astro-cid-ukdfvevk>70%</td><td data-astro-cid-ukdfvevk>40%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 200 tools</td><td class="is-chosen" data-astro-cid-ukdfvevk>80%</td><td data-astro-cid-ukdfvevk>0%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Call approval</td><td class="is-chosen" data-astro-cid-ukdfvevk>70%</td><td data-astro-cid-ukdfvevk>32.5%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Argument validation</td><td class="is-chosen" data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>65%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Injection detection</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>100%</td></tr> </tbody> </table> </div> <div class="chart reveal" data-astro-cid-ukdfvevk> <img src="/benchmark/toolbench-cardinality.svg" alt="Tool selection accuracy by catalog size for Jev and Laya" loading="lazy" data-astro-cid-ukdfvevk> </div> <ul class="prose-list findings" data-astro-cid-ukdfvevk> <li data-astro-cid-ukdfvevk> <strong data-astro-cid-ukdfvevk>The label space is the dividing line.</strong> The models tie on
-        small catalogs and on injection detection, but Jev holds 80% accuracy at
-        200 tools where Laya reaches 0% — matching Laya's own documented option
-        budget limit.
-</li> <li data-astro-cid-ukdfvevk> <strong data-astro-cid-ukdfvevk>Calibration separates them on decisions.</strong> Brier scores
-        on call approval: Jev 0.198 versus Laya 0.547; on argument validation
-        0.019 versus 0.238.
+      for all three: Jev through the Vercel free tier, Laya (open weights)
+      through its official Hugging Face demo Space, and a free generative LLM
+      asked for the same decisions as JSON.
+</p> <div class="table-scroll reveal" data-astro-cid-ukdfvevk> <table class="results" data-astro-cid-ukdfvevk> <thead data-astro-cid-ukdfvevk> <tr data-astro-cid-ukdfvevk> <th data-astro-cid-ukdfvevk>Task family (n = 40)</th> <th data-astro-cid-ukdfvevk>Jev 1.13</th> <th data-astro-cid-ukdfvevk>Laya</th> <th data-astro-cid-ukdfvevk>LLM baseline</th> </tr> </thead> <tbody data-astro-cid-ukdfvevk> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 5 tools</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>100%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 20 tools</td><td data-astro-cid-ukdfvevk>90%</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>80%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 50 tools</td><td data-astro-cid-ukdfvevk>70%</td><td data-astro-cid-ukdfvevk>40%</td><td data-astro-cid-ukdfvevk>70%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Tool selection, 200 tools</td><td class="is-chosen" data-astro-cid-ukdfvevk>80%</td><td data-astro-cid-ukdfvevk>refused*</td><td data-astro-cid-ukdfvevk>80%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Call approval</td><td data-astro-cid-ukdfvevk>70%</td><td data-astro-cid-ukdfvevk>32.5%</td><td class="is-chosen" data-astro-cid-ukdfvevk>80%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Argument validation</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>65%</td><td data-astro-cid-ukdfvevk>100%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Injection detection</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>100%</td><td data-astro-cid-ukdfvevk>100%</td></tr> <tr data-astro-cid-ukdfvevk><td data-astro-cid-ukdfvevk>Median decision latency</td><td data-astro-cid-ukdfvevk>1022 ms</td><td class="is-chosen" data-astro-cid-ukdfvevk>121 ms</td><td data-astro-cid-ukdfvevk>1018 ms</td></tr> </tbody> </table> </div> <div class="chart reveal" data-astro-cid-ukdfvevk> <img src="/benchmark/toolbench-cardinality.svg" alt="Tool selection accuracy by catalog size for Jev, Laya and an LLM baseline" loading="lazy" data-astro-cid-ukdfvevk> </div> <ul class="prose-list findings" data-astro-cid-ukdfvevk> <li data-astro-cid-ukdfvevk> <strong data-astro-cid-ukdfvevk>Laya's 200-option result is a refusal, not a wrong answer.</strong>
+Its English checkpoint rejects the question outright:
+<code data-astro-cid-ukdfvevk>options do not fit in head_max_len=192 tokens</code>. Degradation
+        starts earlier — 40% at 50 options.
+</li> <li data-astro-cid-ukdfvevk> <strong data-astro-cid-ukdfvevk>A free LLM matches Jev on accuracy here.</strong> Selection 82.5%
+        vs 85%, approval 80% vs 70%, validation and injection tied at 100%. Jev's
+        edge is operational: typed answers with no parsing, probabilities as a
+        first-class API, many questions in one parallel request, input-only
+        pricing.
 </li> <li data-astro-cid-ukdfvevk> <strong data-astro-cid-ukdfvevk>Fairness notes.</strong> Cases are synthetic and
-        template-generated (n = 40 per family, one seed); Laya's latency in the
-        run includes the shared demo-Space queue and is not comparable to Jev's;
-        Laya was served as its English base checkpoint.
+        template-generated (one seed); Laya was served as its English base
+        checkpoint; the LLM received the same state and questions with a
+        JSON-only instruction; latency includes each hosted route (Laya's own
+        reported model time is ~121 ms).
 </li> </ul> </section> <section class="wrap sec" data-astro-cid-ukdfvevk> <p class="label section-label" data-astro-cid-ukdfvevk>What failed</p> <ul class="prose-list" data-astro-cid-ukdfvevk> <li data-astro-cid-ukdfvevk>
 Expecting gains everywhere. On XQuAD the baseline was already at 98.1%
         nDCG; there was almost nothing left to win, and always-on reranking
