@@ -282,8 +282,9 @@ const rerankRows = [
       Decision models can also govern tool calls: which tool to use, whether a
       call may run without review, whether arguments are valid, and whether
       observed text tries to manipulate the assistant. Same deterministic cases
-      for both models; Jev through the Vercel free tier, Laya (open weights)
-      served for free through its official Hugging Face demo Space.
+      for all three: Jev through the Vercel free tier, Laya (open weights)
+      through its official Hugging Face demo Space, and a free generative LLM
+      asked for the same decisions as JSON.
     </p>
     <div class="table-scroll reveal">
       <table class="results">
@@ -292,43 +293,48 @@ const rerankRows = [
             <th>Task family (n = 40)</th>
             <th>Jev 1.13</th>
             <th>Laya</th>
+            <th>LLM baseline</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Tool selection, 5 tools</td><td class="is-chosen">100%</td><td>100%</td></tr>
-          <tr><td>Tool selection, 20 tools</td><td>90%</td><td class="is-chosen">100%</td></tr>
-          <tr><td>Tool selection, 50 tools</td><td class="is-chosen">70%</td><td>40%</td></tr>
-          <tr><td>Tool selection, 200 tools</td><td class="is-chosen">80%</td><td>0%</td></tr>
-          <tr><td>Call approval</td><td class="is-chosen">70%</td><td>32.5%</td></tr>
-          <tr><td>Argument validation</td><td class="is-chosen">100%</td><td>65%</td></tr>
-          <tr><td>Injection detection</td><td>100%</td><td>100%</td></tr>
+          <tr><td>Tool selection, 5 tools</td><td>100%</td><td>100%</td><td>100%</td></tr>
+          <tr><td>Tool selection, 20 tools</td><td>90%</td><td>100%</td><td>80%</td></tr>
+          <tr><td>Tool selection, 50 tools</td><td>70%</td><td>40%</td><td>70%</td></tr>
+          <tr><td>Tool selection, 200 tools</td><td class="is-chosen">80%</td><td>refused*</td><td>80%</td></tr>
+          <tr><td>Call approval</td><td>70%</td><td>32.5%</td><td class="is-chosen">80%</td></tr>
+          <tr><td>Argument validation</td><td>100%</td><td>65%</td><td>100%</td></tr>
+          <tr><td>Injection detection</td><td>100%</td><td>100%</td><td>100%</td></tr>
+          <tr><td>Median decision latency</td><td>1022 ms</td><td class="is-chosen">121 ms</td><td>1018 ms</td></tr>
         </tbody>
       </table>
     </div>
     <div class="chart reveal">
       <img
         src="/benchmark/toolbench-cardinality.svg"
-        alt="Tool selection accuracy by catalog size for Jev and Laya"
+        alt="Tool selection accuracy by catalog size for Jev, Laya and an LLM baseline"
         loading="lazy"
       />
     </div>
     <ul class="prose-list findings">
       <li>
-        <strong>The label space is the dividing line.</strong> The models tie on
-        small catalogs and on injection detection, but Jev holds 80% accuracy at
-        200 tools where Laya reaches 0% — matching Laya's own documented option
-        budget limit.
+        <strong>Laya's 200-option result is a refusal, not a wrong answer.</strong>
+        Its English checkpoint rejects the question outright:
+        <code>options do not fit in head_max_len=192 tokens</code>. Degradation
+        starts earlier — 40% at 50 options.
       </li>
       <li>
-        <strong>Calibration separates them on decisions.</strong> Brier scores
-        on call approval: Jev 0.198 versus Laya 0.547; on argument validation
-        0.019 versus 0.238.
+        <strong>A free LLM matches Jev on accuracy here.</strong> Selection 82.5%
+        vs 85%, approval 80% vs 70%, validation and injection tied at 100%. Jev's
+        edge is operational: typed answers with no parsing, probabilities as a
+        first-class API, many questions in one parallel request, input-only
+        pricing.
       </li>
       <li>
         <strong>Fairness notes.</strong> Cases are synthetic and
-        template-generated (n = 40 per family, one seed); Laya's latency in the
-        run includes the shared demo-Space queue and is not comparable to Jev's;
-        Laya was served as its English base checkpoint.
+        template-generated (one seed); Laya was served as its English base
+        checkpoint; the LLM received the same state and questions with a
+        JSON-only instruction; latency includes each hosted route (Laya's own
+        reported model time is ~121 ms).
       </li>
     </ul>
   </section>
