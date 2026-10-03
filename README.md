@@ -1,6 +1,6 @@
 # Emre Ulgac
 
-**Senior Full-Stack Engineer · AI systems, evaluation & cloud infrastructure**
+**Full-Stack Engineer · AI systems, evaluation & cloud infrastructure**
 
 Berlin, Germany
 
@@ -11,7 +11,7 @@ I take responsibility for architecture and delivery, including the parts that ke
 [![Website](https://img.shields.io/badge/Website-emretheus.xyz-0ea5e9?style=flat-square&logo=astro&logoColor=white)](https://emretheus.xyz)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-emre--ulgac-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/emre-ulgac)
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-emretheus-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/emretheus)
-[![Email](https://img.shields.io/badge/Email-ulgacemre%40gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:ulgacemre@gmail.com)
+[![Email](https://img.shields.io/badge/Email-emretheus@proton.me-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:emretheus@proton.me)
 
 ## Selected projects
 
